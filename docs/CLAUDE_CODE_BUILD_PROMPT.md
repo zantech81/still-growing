@@ -43,6 +43,15 @@ override anything in the docs that conflicts:
   requires the reader to write their own reflection to claim, which is what
   unlocks the video and posts to the Circle (see `components/ClaimChapter.tsx`
   for the existing pattern — extend it, don't replace its logic).
+- **Country flag (opt-in, display-only):** `users.country_code` is a
+  nullable ISO 3166-1 alpha-2 text column (e.g. `'MY'`, `'US'`) added in
+  migration `0006_add_country_flag.sql`. It is **never required, never
+  prompted at signup, and never shown as a placeholder** when absent. Users
+  set it voluntarily from `/account`. In the Circle (Step 4), display a
+  flag emoji next to the user's name using `lib/countries.ts`'s `codeToFlag`
+  helper **only** if `country_code` is non-null — if it's null, show nothing.
+  Do not reverse or work around this: absence of a flag is intentional and
+  correct, not an error state to fill.
 - **Data caveat:** `supabase/migrations/0003_seed_baby_book.sql` has
   verified, verbatim reflect_question/challenge_text for chapters 1, 4, 5,
   7, 9, 10, 12 (pulled directly from the real ebook PDF). Chapters 2, 3, 6,

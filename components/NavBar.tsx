@@ -28,6 +28,7 @@ export default function NavBar() {
         <div className="flex gap-6 text-sm">
           {link("/library", "Library")}
           {link("/circle", "Circle")}
+          {link("/account", "Account")}
         </div>
       </div>
     </nav>

@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isBookRoute = /^\/[a-z0-9-]+\/ch\d+$/.test(request.nextUrl.pathname);
-  const isProtectedRoute = isBookRoute || request.nextUrl.pathname.startsWith("/library") || request.nextUrl.pathname.startsWith("/circle");
+  const isProtectedRoute = isBookRoute || request.nextUrl.pathname.startsWith("/library") || request.nextUrl.pathname.startsWith("/circle") || request.nextUrl.pathname.startsWith("/account");
 
   if (!user && isProtectedRoute) {
     const redirectUrl = new URL("/login", request.url);
