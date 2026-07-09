@@ -70,7 +70,7 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked }
     await supabase
       .from("user_books")
       .upsert(
-        { user_id: user.id, book_id: book.id, current_chapter: chapter.number + 1, badges_earned: 1 },
+        { user_id: user.id, book_id: book.id, current_chapter: chapter.number + 1, badges_earned: chapter.number },
         { onConflict: "user_id,book_id" }
       );
 
