@@ -28,9 +28,11 @@ override anything in the docs that conflicts:
 - **Reward videos are free for everyone at launch**, not held behind a future
   paid tier. The monetization doc's "paid tier unlocks videos" is deferred
   to a later phase, not phase 1.
-- **Auth is Google + Apple OAuth + email/password (magic link in the current
-  scaffold; confirm with me before changing to password-based if you think
-  it's needed)** via Supabase Auth. No separate verification step.
+- **Auth is Google OAuth + email magic link** via Supabase Auth, matching
+  the Chegu.my pattern. Apple sign-in is intentionally not implemented —
+  no Apple Developer account yet. If this changes later, adding it is a
+  self-contained addition (Supabase provider config + one button), not a
+  structural change.
 - **Terminology:** the book's private prompt is always called "Reflect."
   The user's own piece that gets shared to the Circle is always called
   "My Reflection" (first person, in the claim UI) or "Your Reflection"

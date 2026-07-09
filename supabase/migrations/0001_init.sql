@@ -3,7 +3,7 @@
 -- no purchase_tag verification, no RedemptionCode. systeme_contact_id is a
 -- write-only marketing sync target, not a gate.
 
-create extension if not exists "uuid-ossp";
+-- create extension if not exists "uuid-ossp";
 
 -- ── User profile ─────────────────────────────────────────────────────────
 -- Supabase Auth owns auth.users (email, OAuth identity, password).
@@ -43,7 +43,7 @@ create trigger on_auth_user_created
 create type content_status as enum ('draft', 'coming_soon', 'published');
 
 create table public.collections (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   name text not null,
   description text,
   sort_order integer not null default 0,
@@ -52,7 +52,7 @@ create table public.collections (
 );
 
 create table public.books (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   collection_id uuid not null references public.collections(id) on delete cascade,
   slug text unique not null,              -- e.g. 'baby' → stillgrowing.co/baby/ch1
   title text not null,
@@ -73,7 +73,7 @@ create table public.books (
 );
 
 create table public.chapters (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   book_id uuid not null references public.books(id) on delete cascade,
   number integer not null,
   title text not null,
@@ -86,7 +86,7 @@ create table public.chapters (
 );
 
 create table public.badges (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   chapter_id uuid not null references public.chapters(id) on delete cascade,
   name text not null,
   icon text,
@@ -95,7 +95,7 @@ create table public.badges (
 
 -- ── Progress & engagement ────────────────────────────────────────────────
 create table public.user_books (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
   book_id uuid not null references public.books(id) on delete cascade,
   started_at timestamptz not null default now(),
@@ -106,7 +106,7 @@ create table public.user_books (
 );
 
 create table public.user_badges (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
   badge_id uuid not null references public.badges(id) on delete cascade,
   book_id uuid not null references public.books(id) on delete cascade,
@@ -115,7 +115,7 @@ create table public.user_badges (
 );
 
 create table public.reflections (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
   chapter_id uuid not null references public.chapters(id) on delete cascade,
   book_id uuid not null references public.books(id) on delete cascade,
@@ -127,7 +127,7 @@ create table public.reflections (
 );
 
 create table public.reactions (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
   reflection_id uuid not null references public.reflections(id) on delete cascade,
   created_at timestamptz not null default now(),
@@ -137,7 +137,7 @@ create table public.reactions (
 create type notification_type as enum ('reaction', 'new_reflection', 'new_book', 'milestone');
 
 create table public.notifications (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
   type notification_type not null,
   payload jsonb not null default '{}',

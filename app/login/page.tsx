@@ -14,9 +14,9 @@ export default function LoginPage() {
 
   const supabase = createClient();
 
-  async function signInWith(provider: "google" | "apple") {
+  async function signInWithGoogle() {
     await supabase.auth.signInWithOAuth({
-      provider,
+      provider: "google",
       options: { redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
     });
   }
@@ -37,16 +37,10 @@ export default function LoginPage() {
 
       <div className="space-y-3 mb-8">
         <button
-          onClick={() => signInWith("google")}
+          onClick={signInWithGoogle}
           className="w-full border border-gray-200 rounded-xl2 py-3 hover:bg-gray-50"
         >
           Continue with Google
-        </button>
-        <button
-          onClick={() => signInWith("apple")}
-          className="w-full border border-gray-200 rounded-xl2 py-3 hover:bg-gray-50"
-        >
-          Continue with Apple
         </button>
       </div>
 
