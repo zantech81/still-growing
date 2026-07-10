@@ -54,6 +54,7 @@ export default function BookForm({ collections, book }: Props) {
   const [slugEdited, setSlugEdited] = useState(isEdit);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -96,6 +97,9 @@ export default function BookForm({ collections, book }: Props) {
       return;
     }
 
+    // Detect publish transition before the save so we can notify after.
+    const isPublishing = isEdit && book.status !== "published" && form.status === "published";
+
     setSaving(true);
     setErrors({});
 
@@ -115,9 +119,8 @@ export default function BookForm({ collections, book }: Props) {
       ? await supabase.from("books").update(payload).eq("id", book.id)
       : await supabase.from("books").insert(payload);
 
-    setSaving(false);
-
     if (error) {
+      setSaving(false);
       if (error.code === "23505") {
         if (error.message.includes("slug")) {
           setErrors({ slug: "A book with this slug already exists." });
@@ -132,6 +135,18 @@ export default function BookForm({ collections, book }: Props) {
       return;
     }
 
+    // Send member notifications when a book is first published.
+    if (isPublishing) {
+      setPublishing(true);
+      await fetch("/api/admin/notify-book-launch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookId: book.id }),
+      }).catch(console.error);
+      setPublishing(false);
+    }
+
+    setSaving(false);
     router.push("/admin/books");
     router.refresh();
   }
@@ -271,7 +286,7 @@ export default function BookForm({ collections, book }: Props) {
           disabled={saving}
           className="bg-plum text-white px-6 py-2.5 rounded-xl2 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
         >
-          {saving ? "Saving…" : isEdit ? "Save changes" : "Create book"}
+          {publishing ? "Notifying members…" : saving ? "Saving…" : isEdit ? "Save changes" : "Create book"}
         </button>
         <button
           type="button"

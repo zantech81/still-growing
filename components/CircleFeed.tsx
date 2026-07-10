@@ -84,9 +84,12 @@ export default function CircleFeed({
         ...prev,
         [reflectionId]: (prev[reflectionId] ?? 0) + 1,
       }));
-      await supabase
-        .from("reactions")
-        .insert({ user_id: currentUserId, reflection_id: reflectionId });
+      // Route through the server so the notification email can be sent.
+      await fetch("/api/reactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reflection_id: reflectionId }),
+      });
     }
   }
 
