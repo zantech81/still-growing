@@ -67,13 +67,6 @@ override anything in the docs that conflicts:
   the admin on the book create/edit form (Step 5); `lib/reservedSlugs.ts` is
   the single source of truth for slug words that must never be used as book
   slugs, imported by both `middleware.ts` and the admin book form.
-- **Data caveat:** `supabase/migrations/0003_seed_baby_book.sql` has
-  verified, verbatim reflect_question/challenge_text for chapters 1, 4, 5,
-  7, 9, 10, 12 (pulled directly from the real ebook PDF). Chapters 2, 3, 6,
-  8, and 11 are placeholder text I wrote from memory of the book's general
-  shape, not verified against the actual PDF. Flag this to me clearly again
-  once you reach anything touching those chapters — don't silently treat
-  them as final.
 
 ## Build order
 

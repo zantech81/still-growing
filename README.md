@@ -12,8 +12,8 @@ purchase verification; Systeme.io is a marketing-capture write-target only).
 - **Supabase schema** (`supabase/migrations/`): full Collection → Book →
   Chapter → Badge hierarchy, progress tracking, reflections, reactions,
   notifications, and Row-Level Security policies
-- **Seed data** for the Baby Wisdom book, pulled from
-  `Life_Lessons_from_a_Baby_Ebook_v5.pdf`
+- **Seed data** for the Baby Wisdom book, all 12 chapters verbatim-verified
+  against `Life_Lessons_from_a_Baby_Ebook_v6.pdf`
 - **Auth**: Google + Apple OAuth + email magic link, via Supabase Auth,
   with an auto-created profile row on signup
 - **The `/baby/ch4`-style deep links** from the book: `app/[book]/[chapter]/page.tsx`
@@ -22,16 +22,6 @@ purchase verification; Systeme.io is a marketing-capture write-target only).
 - **Homepage** (`app/page.tsx`): digital twin of the book's "Your Journey
   Continues" closing CTA page
 - **Login page**: no purchase check, matches the "Begin" language from the book
-
-## ⚠️ Needs your review before going further
-
-I filled in `reflect_question` / `challenge_text` for **Chapters 2, 3, 6, 8, and 11**
-in the seed file from memory of the general shape of the book, since I wasn't
-able to visually re-verify those specific pages against v5 (an image-viewing
-issue on my end during this session — chapters 1, 4, 5, 7, 9, 10, and 12 were
-directly OCR-verified against the real PDF and are accurate). Please check
-`supabase/migrations/0003_seed_baby_book.sql` against the actual book for
-those five chapters before running it against production.
 
 ## Not yet built
 
