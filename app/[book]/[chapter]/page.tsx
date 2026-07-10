@@ -38,7 +38,7 @@ export default async function ChapterPage({
     .eq("book_id", book.id)
     .maybeSingle();
 
-  if (!bookUnlock) redirect("/library");
+  if (!bookUnlock) redirect(`/library?next=/${params.book}/${params.chapter}`);
 
   const { data: chapter } = await supabase
     .from("chapters")

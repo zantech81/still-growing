@@ -41,7 +41,8 @@ export async function middleware(request: NextRequest) {
     isJourneyRoute ||
     request.nextUrl.pathname.startsWith("/library") ||
     request.nextUrl.pathname.startsWith("/circle") ||
-    request.nextUrl.pathname.startsWith("/account");
+    request.nextUrl.pathname.startsWith("/account") ||
+    request.nextUrl.pathname.startsWith("/admin");
 
   if (!user && isProtectedRoute) {
     const redirectUrl = new URL("/login", request.url);

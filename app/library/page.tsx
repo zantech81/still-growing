@@ -4,7 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import NavBar from "@/components/NavBar";
 import LockedBookCard from "@/components/LockedBookCard";
 
-export default async function LibraryPage() {
+export default async function LibraryPage({
+  searchParams,
+}: {
+  searchParams: { next?: string | string[] };
+}) {
   const supabase = createClient();
   const {
     data: { user },
@@ -36,6 +40,13 @@ export default async function LibraryPage() {
     (userBooks ?? []).map((ub) => [ub.book_id, ub])
   );
   const unlockedSet = new Set((bookUnlocks ?? []).map((bu) => bu.book_id));
+
+  // Preserve deep-link destination through the unlock form
+  const nextUrl = Array.isArray(searchParams.next)
+    ? searchParams.next[0]
+    : (searchParams.next ?? null);
+  // Extract the book slug from paths like "/baby" or "/baby/ch4"
+  const nextBookSlug = nextUrl?.startsWith("/") ? nextUrl.split("/")[1] ?? null : null;
 
   // Only show collections that have at least one published book
   const collectionList = (collections ?? [])
@@ -81,6 +92,7 @@ export default async function LibraryPage() {
                           title={book.title}
                           subtitle={book.subtitle ?? null}
                           coverImageUrl={book.cover_image_url ?? null}
+                          nextUrl={book.slug === nextBookSlug ? nextUrl : null}
                         />
                       );
                     }

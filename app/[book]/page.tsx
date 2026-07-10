@@ -31,7 +31,7 @@ export default async function JourneyPage({
     .eq("book_id", book.id)
     .maybeSingle();
 
-  if (!bookUnlock) redirect("/library");
+  if (!bookUnlock) redirect(`/library?next=/${params.book}`);
 
   const [{ data: chapters }, { data: userBook }] = await Promise.all([
     supabase

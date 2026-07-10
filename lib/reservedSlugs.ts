@@ -7,5 +7,6 @@ export const RESERVED_SLUGS = new Set([
   "circle",
   "account",
   "auth",
-  "api", // Next.js API routes live under /api/*
+  "api",   // Next.js API routes live under /api/*
+  "admin", // Admin dashboard
 ]);

@@ -8,6 +8,7 @@ type Props = {
   title: string;
   subtitle: string | null;
   coverImageUrl: string | null;
+  nextUrl?: string | null; // preserve deep-link destination through the unlock flow
 };
 
 export default function LockedBookCard({
@@ -15,6 +16,7 @@ export default function LockedBookCard({
   title,
   subtitle,
   coverImageUrl,
+  nextUrl,
 }: Props) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
@@ -45,7 +47,12 @@ export default function LockedBookCard({
 
     if (res.ok) {
       setStatus("unlocked");
-      router.refresh();
+      // If the reader arrived here from a deep link, send them straight back
+      if (nextUrl?.startsWith("/")) {
+        router.push(nextUrl);
+      } else {
+        router.refresh();
+      }
     } else {
       const data = await res.json().catch(() => ({}));
       setStatus("error");
@@ -95,7 +102,10 @@ export default function LockedBookCard({
                 value={code}
                 onChange={(e) => {
                   setCode(e.target.value.toUpperCase());
-                  if (status === "error") { setStatus("idle"); setErrorMsg(null); }
+                  if (status === "error") {
+                    setStatus("idle");
+                    setErrorMsg(null);
+                  }
                 }}
                 placeholder="Your access code"
                 disabled={status === "submitting" || status === "unlocked"}
