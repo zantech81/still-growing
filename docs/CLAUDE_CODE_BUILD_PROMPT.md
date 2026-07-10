@@ -52,6 +52,21 @@ override anything in the docs that conflicts:
   helper **only** if `country_code` is non-null — if it's null, show nothing.
   Do not reverse or work around this: absence of a flag is intentional and
   correct, not an error state to fill.
+- **Per-book access control via redemption codes:** Each book has a
+  `redemption_code` (unique nullable text, migration `0007`) that readers
+  enter once to unlock a book. A successful entry creates a row in
+  `book_unlocks` (user_id, book_id, unlocked_at). **`book_unlocks` is the
+  gate**: the Journey page (`app/[book]/page.tsx`) and every chapter page
+  (`app/[book]/[chapter]/page.tsx`) redirect to `/library` if no matching
+  row exists, preventing direct-URL access without the code. The Library
+  shows a locked card (grayscale cover, inline code field) for locked books.
+  Correct code → POST `/api/redeem` → `book_unlocks` insert →
+  `router.refresh()` to reveal the book. Wrong code → inline error. Codes
+  are compared case-insensitively. The Baby Wisdom book code is `'GROWBABY'`.
+  All books require a code — there is no open-access flag. Codes are set by
+  the admin on the book create/edit form (Step 5); `lib/reservedSlugs.ts` is
+  the single source of truth for slug words that must never be used as book
+  slugs, imported by both `middleware.ts` and the admin book form.
 - **Data caveat:** `supabase/migrations/0003_seed_baby_book.sql` has
   verified, verbatim reflect_question/challenge_text for chapters 1, 4, 5,
   7, 9, 10, 12 (pulled directly from the real ebook PDF). Chapters 2, 3, 6,

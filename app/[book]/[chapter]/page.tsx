@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import ClaimChapter from "@/components/ClaimChapter";
 
@@ -26,6 +26,20 @@ export default async function ChapterPage({
 
   if (!book) notFound();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Access control: reader must have entered the redemption code for this book
+  const { data: bookUnlock } = await supabase
+    .from("book_unlocks")
+    .select("id")
+    .eq("user_id", user!.id)
+    .eq("book_id", book.id)
+    .maybeSingle();
+
+  if (!bookUnlock) redirect("/library");
+
   const { data: chapter } = await supabase
     .from("chapters")
     .select("id, number, title, milestone_label, reflect_question, mux_playback_id, badges(id, name, icon, description)")
@@ -34,10 +48,6 @@ export default async function ChapterPage({
     .single();
 
   if (!chapter) notFound();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   const { data: userBook } = await supabase
     .from("user_books")

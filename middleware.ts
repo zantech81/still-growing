@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { RESERVED_SLUGS } from "@/lib/reservedSlugs";
 
 // Keeps the Supabase session cookie fresh across navigations, and is where
 // a deep link like /baby/ch4 checks auth before deciding where to send
@@ -31,11 +32,10 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isBookRoute = /^\/[a-z0-9-]+\/ch\d+$/.test(request.nextUrl.pathname);
-  // Single-slug routes that belong to the app, not book slugs (e.g. /baby, /teen)
-  const APP_SLUGS = new Set(["login", "library", "circle", "account", "auth"]);
+  // Single-slug routes that aren't app routes are Journey pages (e.g. /baby, /teen)
   const isJourneyRoute =
     /^\/[a-z][a-z0-9-]*$/.test(request.nextUrl.pathname) &&
-    !APP_SLUGS.has(request.nextUrl.pathname.slice(1));
+    !RESERVED_SLUGS.has(request.nextUrl.pathname.slice(1));
   const isProtectedRoute =
     isBookRoute ||
     isJourneyRoute ||

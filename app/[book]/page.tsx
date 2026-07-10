@@ -23,6 +23,16 @@ export default async function JourneyPage({
 
   if (!book) notFound();
 
+  // Access control: reader must have entered the redemption code
+  const { data: bookUnlock } = await supabase
+    .from("book_unlocks")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("book_id", book.id)
+    .maybeSingle();
+
+  if (!bookUnlock) redirect("/library");
+
   const [{ data: chapters }, { data: userBook }] = await Promise.all([
     supabase
       .from("chapters")

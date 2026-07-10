@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import NavBar from "@/components/NavBar";
+import LockedBookCard from "@/components/LockedBookCard";
 
 export default async function LibraryPage() {
   const supabase = createClient();
@@ -10,7 +11,7 @@ export default async function LibraryPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/library");
 
-  const [{ data: collections }, { data: books }, { data: userBooks }] = await Promise.all([
+  const [{ data: collections }, { data: books }, { data: userBooks }, { data: bookUnlocks }] = await Promise.all([
     supabase
       .from("collections")
       .select("id, name, description, sort_order")
@@ -25,11 +26,16 @@ export default async function LibraryPage() {
       .from("user_books")
       .select("book_id, badges_earned, current_chapter")
       .eq("user_id", user.id),
+    supabase
+      .from("book_unlocks")
+      .select("book_id")
+      .eq("user_id", user.id),
   ]);
 
   const progressMap = Object.fromEntries(
     (userBooks ?? []).map((ub) => [ub.book_id, ub])
   );
+  const unlockedSet = new Set((bookUnlocks ?? []).map((bu) => bu.book_id));
 
   // Only show collections that have at least one published book
   const collectionList = (collections ?? [])
@@ -59,12 +65,27 @@ export default async function LibraryPage() {
                 </h2>
                 <div className="space-y-4">
                   {collection.books.map((book) => {
+                    const isUnlocked = unlockedSet.has(book.id);
                     const progress = progressMap[book.id];
                     const totalChapters = (book.chapters as { id: string }[]).length;
                     const badgesEarned = progress?.badges_earned ?? 0;
                     const started = !!progress;
                     const pct = totalChapters > 0 ? (badgesEarned / totalChapters) * 100 : 0;
 
+                    // Locked: reader hasn't entered the redemption code yet
+                    if (!isUnlocked) {
+                      return (
+                        <LockedBookCard
+                          key={book.id}
+                          bookId={book.id}
+                          title={book.title}
+                          subtitle={book.subtitle ?? null}
+                          coverImageUrl={book.cover_image_url ?? null}
+                        />
+                      );
+                    }
+
+                    // Unlocked: show progress (or "Begin your journey" if not started)
                     return (
                       <Link
                         key={book.id}
