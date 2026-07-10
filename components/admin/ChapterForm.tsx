@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import MuxUploader from "@/components/admin/MuxUploader";
 
 type ChapterData = {
   id: string;
@@ -205,14 +206,10 @@ export default function ChapterForm({ bookId, chapter, badge }: Props) {
         />
       </Field>
 
-      <Field label="Mux playback ID" error={errors.muxPlaybackId}>
-        <input
-          type="text"
+      <Field label="Video" error={errors.muxPlaybackId}>
+        <MuxUploader
           value={form.muxPlaybackId}
-          onChange={(e) => set("muxPlaybackId", e.target.value)}
-          className={input()}
-          placeholder="Leave blank if no video yet"
-          spellCheck={false}
+          onChange={(id) => set("muxPlaybackId", id)}
         />
       </Field>
 
