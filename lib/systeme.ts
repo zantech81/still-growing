@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const API_URL = "https://api.systeme.io/api/contacts";
 const PLATFORM_TAG = "platform-member";
+const TIMEOUT_MS = 5_000;
 
 // Syncs a newly signed-in user to Systeme.io as a marketing contact.
 // Safe to call on every login — exits immediately if already synced.
@@ -26,7 +27,6 @@ export async function syncSystemeContact(userId: string, email: string): Promise
 
     if (profile?.systeme_contact_id) return;
 
-    // Try to create the contact with the platform tag in one call.
     const contactId = await createOrFindContact(apiKey, email);
     if (!contactId) return;
 
@@ -43,6 +43,22 @@ export async function syncSystemeContact(userId: string, email: string): Promise
   }
 }
 
+// Wraps fetch with an AbortController timeout. Throws AbortError on timeout
+// (caller is responsible for catching and logging it).
+async function timedFetch(url: string, options: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function isAbortError(err: unknown): boolean {
+  return err instanceof Error && err.name === "AbortError";
+}
+
 async function createOrFindContact(apiKey: string, email: string): Promise<string | null> {
   const headers = {
     "X-API-Key": apiKey,
@@ -50,19 +66,24 @@ async function createOrFindContact(apiKey: string, email: string): Promise<strin
     Accept: "application/json",
   };
 
-  // Attempt to create the contact with the tag applied in one request.
-  const createRes = await fetch(API_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      email,
-      fields: [],
-      tags: [{ name: PLATFORM_TAG }],
-    }),
-  });
+  let createRes: Response;
+  try {
+    createRes = await timedFetch(API_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ email, fields: [], tags: [{ name: PLATFORM_TAG }] }),
+    });
+  } catch (err) {
+    if (isAbortError(err)) {
+      console.error("[systeme] POST /api/contacts timed out after 5 s");
+    } else {
+      console.error("[systeme] POST /api/contacts network error:", err);
+    }
+    return null;
+  }
 
   if (createRes.ok) {
-    const body = await createRes.json() as { id?: string | number };
+    const body = (await createRes.json()) as { id?: string | number };
     const id = body.id?.toString() ?? null;
     if (!id) console.error("[systeme] Created contact but response had no ID:", JSON.stringify(body));
     return id;
@@ -85,7 +106,18 @@ async function findContactByEmail(
   headers: Record<string, string>
 ): Promise<string | null> {
   const url = `${API_URL}?email=${encodeURIComponent(email)}`;
-  const res = await fetch(url, { method: "GET", headers });
+
+  let res: Response;
+  try {
+    res = await timedFetch(url, { method: "GET", headers });
+  } catch (err) {
+    if (isAbortError(err)) {
+      console.error("[systeme] GET /api/contacts timed out after 5 s");
+    } else {
+      console.error("[systeme] GET /api/contacts network error:", err);
+    }
+    return null;
+  }
 
   if (!res.ok) {
     const errBody = await res.text().catch(() => "(unreadable)");
@@ -93,7 +125,7 @@ async function findContactByEmail(
     return null;
   }
 
-  const body = await res.json() as { items?: Array<{ id?: string | number }> };
+  const body = (await res.json()) as { items?: Array<{ id?: string | number }> };
   const contact = body.items?.[0];
   if (!contact?.id) {
     console.error("[systeme] Contact lookup returned no results for email:", email);
