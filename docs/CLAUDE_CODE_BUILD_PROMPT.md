@@ -109,6 +109,13 @@ build all of this in one uninterrupted pass.
    Architecture §8's three-layer notification approach — build the in-app
    layer (bell/unread dots) alongside this if not already present from
    step 3-4's work.
+   **Note:** `notifyBookLaunch` in `lib/notifications.ts` fires one SendGrid
+   API call per user concurrently via `Promise.allSettled`, with no rate
+   limiting or batching. This is fine at current scale (tens of users), but
+   before a real book launch with a meaningful user base, add batching (e.g.
+   process users in chunks of 50 with a short delay between chunks, or move
+   to a background queue) to avoid hitting SendGrid's per-second API rate
+   limits.
 
 8. **Polish pass.** Responsive down to mobile, keyboard focus states,
    loading/empty states written in the product's own warm voice per the

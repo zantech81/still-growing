@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { codeToFlag } from "@/lib/countries";
 
 type Author = {
@@ -62,35 +61,22 @@ export default function CircleFeed({
       : reflections.filter((r) => r.chapter_number === activeChapter);
 
   async function toggleReaction(reflectionId: string) {
-    const supabase = createClient();
-    if (reacted.has(reflectionId)) {
-      setReacted((prev) => {
-        const next = new Set(prev);
-        next.delete(reflectionId);
-        return next;
-      });
-      setHeartCounts((prev) => ({
-        ...prev,
-        [reflectionId]: Math.max(0, (prev[reflectionId] ?? 1) - 1),
-      }));
-      await supabase
-        .from("reactions")
-        .delete()
-        .eq("user_id", currentUserId)
-        .eq("reflection_id", reflectionId);
-    } else {
+    const adding = !reacted.has(reflectionId);
+
+    // Optimistic update first — UI responds instantly.
+    if (adding) {
       setReacted((prev) => new Set(prev).add(reflectionId));
-      setHeartCounts((prev) => ({
-        ...prev,
-        [reflectionId]: (prev[reflectionId] ?? 0) + 1,
-      }));
-      // Route through the server so the notification email can be sent.
-      await fetch("/api/reactions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reflection_id: reflectionId }),
-      });
+      setHeartCounts((prev) => ({ ...prev, [reflectionId]: (prev[reflectionId] ?? 0) + 1 }));
+    } else {
+      setReacted((prev) => { const next = new Set(prev); next.delete(reflectionId); return next; });
+      setHeartCounts((prev) => ({ ...prev, [reflectionId]: Math.max(0, (prev[reflectionId] ?? 1) - 1) }));
     }
+
+    await fetch("/api/reactions", {
+      method: adding ? "POST" : "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reflection_id: reflectionId }),
+    });
   }
 
   return (

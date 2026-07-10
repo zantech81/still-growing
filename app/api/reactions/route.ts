@@ -34,3 +34,32 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+export async function DELETE(request: Request) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = await request.json().catch(() => null);
+  const reflectionId = body?.reflection_id;
+  if (!reflectionId) {
+    return NextResponse.json({ error: "Missing reflection_id" }, { status: 400 });
+  }
+
+  const { error } = await supabase
+    .from("reactions")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("reflection_id", reflectionId);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
+}
