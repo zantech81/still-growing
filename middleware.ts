@@ -31,7 +31,17 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isBookRoute = /^\/[a-z0-9-]+\/ch\d+$/.test(request.nextUrl.pathname);
-  const isProtectedRoute = isBookRoute || request.nextUrl.pathname.startsWith("/library") || request.nextUrl.pathname.startsWith("/circle") || request.nextUrl.pathname.startsWith("/account");
+  // Single-slug routes that belong to the app, not book slugs (e.g. /baby, /teen)
+  const APP_SLUGS = new Set(["login", "library", "circle", "account", "auth"]);
+  const isJourneyRoute =
+    /^\/[a-z][a-z0-9-]*$/.test(request.nextUrl.pathname) &&
+    !APP_SLUGS.has(request.nextUrl.pathname.slice(1));
+  const isProtectedRoute =
+    isBookRoute ||
+    isJourneyRoute ||
+    request.nextUrl.pathname.startsWith("/library") ||
+    request.nextUrl.pathname.startsWith("/circle") ||
+    request.nextUrl.pathname.startsWith("/account");
 
   if (!user && isProtectedRoute) {
     const redirectUrl = new URL("/login", request.url);
