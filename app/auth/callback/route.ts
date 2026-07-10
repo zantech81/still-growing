@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { syncSystemeContact } from "@/lib/systeme";
 
 // Completes sign-in for Google OAuth and email magic links, then sends
 // the reader wherever they were headed — including straight into a
@@ -11,7 +12,15 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = createClient();
-    await supabase.auth.exchangeCodeForSession(code);
+    const {
+      data: { session },
+    } = await supabase.auth.exchangeCodeForSession(code);
+
+    // Sync to Systeme.io marketing list on first sign-in.
+    // Errors are caught inside syncSystemeContact — this never blocks the redirect.
+    if (session?.user) {
+      await syncSystemeContact(session.user.id, session.user.email ?? "");
+    }
   }
 
   return NextResponse.redirect(`${origin}${next}`);
