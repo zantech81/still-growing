@@ -12,13 +12,13 @@ export default async function EditChapterPage({
   const [{ data: chapter }, { data: badge }, { data: book }] = await Promise.all([
     supabase
       .from("chapters")
-      .select("id, number, title, milestone_label, reflect_question, challenge_text, mux_playback_id")
+      .select("id, number, title, milestone_label, reflect_question, challenge_text, mux_playback_id, unlock_code")
       .eq("id", params.chapterId)
       .eq("book_id", params.id)
       .single(),
     supabase
       .from("badges")
-      .select("id, name, icon, description")
+      .select("id, name, icon, description, badge_image_url")
       .eq("chapter_id", params.chapterId)
       .maybeSingle(),
     supabase.from("books").select("id, title").eq("id", params.id).single(),
@@ -29,7 +29,7 @@ export default async function EditChapterPage({
   return (
     <div>
       <h1 className="text-3xl font-display text-plum mb-2">
-        Ch. {chapter.number} — {chapter.title}
+        Ch. {chapter.number}: {chapter.title}
       </h1>
       <p className="text-sm text-gray-400 mb-8">{book.title}</p>
       <ChapterForm bookId={params.id} chapter={chapter} badge={badge} />

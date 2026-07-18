@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import MuxUploader from "@/components/admin/MuxUploader";
@@ -13,6 +13,7 @@ type ChapterData = {
   reflect_question: string | null;
   challenge_text: string | null;
   mux_playback_id: string | null;
+  unlock_code: string | null;
 };
 
 type BadgeData = {
@@ -20,6 +21,7 @@ type BadgeData = {
   name: string;
   icon: string | null;
   description: string | null;
+  badge_image_url: string | null;
 };
 
 type Props = {
@@ -28,9 +30,29 @@ type Props = {
   badge?: BadgeData | null;
 };
 
+// Maps a chapters-table save error to inline field errors. 23505 (unique
+// violation) gets a friendly message distinguishing which column collided;
+// anything else surfaces the raw Postgres code/message/hint directly, since
+// the admin is the only user of this form and a swallowed error code is
+// exactly what turned the unlock_code migration gap into a live-DB
+// investigation instead of a one-glance diagnosis.
+function chapterSaveError(err: { code?: string; message: string; hint?: string | null }): Record<string, string> {
+  if (err.code === "23505") {
+    const isUnlockCode = err.message.includes("unlock_code");
+    return {
+      form: isUnlockCode ? "" : "Chapter number already exists in this book.",
+      unlockCode: isUnlockCode ? "This unlock code is already used by another chapter in this book." : "",
+    };
+  }
+  return {
+    form: `Save failed (${err.code ?? "unknown"}): ${err.message}${err.hint ? `. ${err.hint}` : ""}`,
+  };
+}
+
 export default function ChapterForm({ bookId, chapter, badge }: Props) {
   const router = useRouter();
   const isEdit = !!chapter;
+  const badgeImageInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     number: chapter?.number?.toString() ?? "",
@@ -39,23 +61,58 @@ export default function ChapterForm({ bookId, chapter, badge }: Props) {
     reflectQuestion: chapter?.reflect_question ?? "",
     challengeText: chapter?.challenge_text ?? "",
     muxPlaybackId: chapter?.mux_playback_id ?? "",
+    unlockCode: chapter?.unlock_code ?? "",
     badgeName: badge?.name ?? "",
     badgeIcon: badge?.icon ?? "",
     badgeDescription: badge?.description ?? "",
+    badgeImageUrl: badge?.badge_image_url ?? "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [uploadingBadgeImage, setUploadingBadgeImage] = useState(false);
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
     setErrors((e) => ({ ...e, [key]: "" }));
   }
 
+  async function handleBadgeImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    const ext = file.name.split(".").pop() ?? "png";
+    const path = `badges/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+    setUploadingBadgeImage(true);
+    setErrors((err) => ({ ...err, badgeImageUrl: "" }));
+
+    const supabase = createClient();
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from("book-covers")
+      .upload(path, file, { upsert: false });
+
+    if (uploadError || !uploadData) {
+      setUploadingBadgeImage(false);
+      setErrors((err) => ({
+        ...err,
+        badgeImageUrl: uploadError?.message ? `Upload failed: ${uploadError.message}` : "Upload failed. Try again.",
+      }));
+      return;
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from("book-covers").getPublicUrl(uploadData.path);
+    set("badgeImageUrl", publicUrl);
+    setUploadingBadgeImage(false);
+  }
+
   async function handleSave() {
-    if (!form.number || !form.title || !form.badgeName) {
+    if (!form.number || !form.title || !form.reflectQuestion.trim() || !form.challengeText.trim() || !form.badgeName) {
       setErrors({
         number: form.number ? "" : "Chapter number is required.",
         title: form.title ? "" : "Title is required.",
+        reflectQuestion: form.reflectQuestion.trim() ? "" : "Reflection question is required.",
+        challengeText: form.challengeText.trim() ? "" : "Challenge is required.",
         badgeName: form.badgeName ? "" : "Badge name is required.",
       });
       return;
@@ -77,9 +134,10 @@ export default function ChapterForm({ bookId, chapter, badge }: Props) {
       number: chapterNumber,
       title: form.title,
       milestone_label: form.milestoneLabel || null,
-      reflect_question: form.reflectQuestion || null,
-      challenge_text: form.challengeText || null,
+      reflect_question: form.reflectQuestion.trim(),
+      challenge_text: form.challengeText.trim(),
       mux_playback_id: form.muxPlaybackId || null,
+      unlock_code: form.unlockCode.toUpperCase().trim() || null,
     };
 
     if (isEdit) {
@@ -90,7 +148,7 @@ export default function ChapterForm({ bookId, chapter, badge }: Props) {
 
       if (chErr) {
         setSaving(false);
-        setErrors({ form: chErr.code === "23505" ? "Chapter number already exists in this book." : "Something went wrong." });
+        setErrors(chapterSaveError(chErr));
         return;
       }
 
@@ -98,22 +156,18 @@ export default function ChapterForm({ bookId, chapter, badge }: Props) {
         name: form.badgeName,
         icon: form.badgeIcon || null,
         description: form.badgeDescription || null,
+        badge_image_url: form.badgeImageUrl || null,
       };
 
       if (badge) {
-        const { error: bErr } = await supabase
-          .from("badges")
-          .update(badgePayload)
-          .eq("id", badge.id);
+        const { error: bErr } = await supabase.from("badges").update(badgePayload).eq("id", badge.id);
         if (bErr) {
           setSaving(false);
           setErrors({ form: "Chapter saved but badge update failed." });
           return;
         }
       } else {
-        const { error: bErr } = await supabase
-          .from("badges")
-          .insert({ ...badgePayload, chapter_id: chapter.id });
+        const { error: bErr } = await supabase.from("badges").insert({ ...badgePayload, chapter_id: chapter.id });
         if (bErr) {
           setSaving(false);
           setErrors({ form: "Chapter saved but badge creation failed." });
@@ -129,7 +183,7 @@ export default function ChapterForm({ bookId, chapter, badge }: Props) {
 
       if (chErr || !newChapter) {
         setSaving(false);
-        setErrors({ form: chErr?.code === "23505" ? "Chapter number already exists in this book." : "Something went wrong." });
+        setErrors(chErr ? chapterSaveError(chErr) : { form: "Chapter insert returned no data. Try again." });
         return;
       }
 
@@ -138,6 +192,7 @@ export default function ChapterForm({ bookId, chapter, badge }: Props) {
         name: form.badgeName,
         icon: form.badgeIcon || null,
         description: form.badgeDescription || null,
+        badge_image_url: form.badgeImageUrl || null,
       });
 
       if (bErr) {
@@ -186,22 +241,22 @@ export default function ChapterForm({ bookId, chapter, badge }: Props) {
         />
       </Field>
 
-      <Field label="Reflection question" error={errors.reflectQuestion}>
+      <Field label="Reflection question" error={errors.reflectQuestion} required>
         <textarea
           value={form.reflectQuestion}
           onChange={(e) => set("reflectQuestion", e.target.value)}
           rows={3}
-          className={input()}
+          className={input(errors.reflectQuestion)}
           placeholder="What's one thing you're carrying right now that you wish you could set down?"
         />
       </Field>
 
-      <Field label="Challenge" error={errors.challengeText}>
+      <Field label="Challenge" error={errors.challengeText} required>
         <textarea
           value={form.challengeText}
           onChange={(e) => set("challengeText", e.target.value)}
           rows={3}
-          className={input()}
+          className={input(errors.challengeText)}
           placeholder="This week, notice one moment when…"
         />
       </Field>
@@ -210,6 +265,26 @@ export default function ChapterForm({ bookId, chapter, badge }: Props) {
         <MuxUploader
           value={form.muxPlaybackId}
           onChange={(id) => set("muxPlaybackId", id)}
+        />
+      </Field>
+
+      <Field
+        label="Unlock code"
+        error={errors.unlockCode}
+        hint="Readers enter this alongside their reflection to claim this chapter's badge. Leave blank to require no code."
+      >
+        <input
+          type="text"
+          value={form.unlockCode}
+          onChange={(e) =>
+            setForm((f) => ({
+              ...f,
+              unlockCode: e.target.value.toUpperCase().replace(/\s/g, ""),
+            }))
+          }
+          className={`${input(errors.unlockCode)} uppercase tracking-widest`}
+          placeholder="READY"
+          spellCheck={false}
         />
       </Field>
 
@@ -246,6 +321,50 @@ export default function ChapterForm({ bookId, chapter, badge }: Props) {
               placeholder="Awarded for completing Chapter 1"
             />
           </Field>
+
+          {/* Badge image upload */}
+          <Field label="Badge image" error={errors.badgeImageUrl}>
+            <p className="text-xs text-gray-300 mb-2">Recommended: 500×500px square PNG with transparent background</p>
+            <input
+              ref={badgeImageInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              onChange={handleBadgeImageUpload}
+            />
+            <div className="flex items-start gap-4">
+              {form.badgeImageUrl && (
+                <img
+                  src={form.badgeImageUrl}
+                  alt="Badge preview"
+                  className="w-16 h-16 object-contain flex-shrink-0 rounded-lg border border-gray-100 bg-gray-50"
+                />
+              )}
+              <div className="flex flex-col gap-2 flex-1">
+                <button
+                  type="button"
+                  onClick={() => badgeImageInputRef.current?.click()}
+                  disabled={uploadingBadgeImage}
+                  className="border border-dashed border-gray-300 hover:border-pink-dusty rounded-lg px-4 py-2.5 text-sm text-gray-400 hover:text-ink transition-colors text-left disabled:opacity-50"
+                >
+                  {uploadingBadgeImage
+                    ? "Uploading…"
+                    : form.badgeImageUrl
+                    ? "Replace image"
+                    : "+ Upload badge image"}
+                </button>
+                {form.badgeImageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => set("badgeImageUrl", "")}
+                    className="text-xs text-gray-300 hover:text-pink-deep transition-colors text-left"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+          </Field>
         </div>
       </div>
 
@@ -254,7 +373,7 @@ export default function ChapterForm({ bookId, chapter, badge }: Props) {
       <div className="flex gap-3 pt-2">
         <button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || uploadingBadgeImage}
           className="bg-plum text-white px-6 py-2.5 rounded-xl2 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           {saving ? "Saving…" : isEdit ? "Save changes" : "Create chapter"}
@@ -280,11 +399,13 @@ function input(error?: string) {
 function Field({
   label,
   error,
+  hint,
   required,
   children,
 }: {
   label: string;
   error?: string;
+  hint?: string;
   required?: boolean;
   children: React.ReactNode;
 }) {
@@ -296,6 +417,7 @@ function Field({
       </label>
       {children}
       {error && <p className="text-xs text-pink-deep mt-1">{error}</p>}
+      {!error && hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
     </div>
   );
 }
