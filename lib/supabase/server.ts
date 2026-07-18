@@ -10,6 +10,15 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // See the matching comment in lib/supabase/admin.ts: Next.js caches
+      // fetch() by URL regardless of force-dynamic, which can silently
+      // serve a stale row after it changes. This client is used on nearly
+      // every authenticated page, so the same staleness risk applies here
+      // too, not just for the admin client.
+      global: {
+        fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+          fetch(input, { ...init, cache: "no-store" }),
+      },
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -20,8 +29,8 @@ export function createClient() {
               cookieStore.set(name, value, options)
             );
           } catch {
-            // Called from a Server Component that can't set cookies —
-            // safe to ignore if middleware.ts is refreshing sessions.
+            // Called from a Server Component that can't set cookies.
+            // Safe to ignore if middleware.ts is refreshing sessions.
           }
         },
       },
