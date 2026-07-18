@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-// This page is the digital continuation of "Your Journey Continues" —
+// This page is the digital continuation of "Your Journey Continues",
 // the closing CTA page in the book. Same three-point pitch, same voice,
 // same "Begin" language. Anyone landing here typed in the plain
 // stillgrowing.co URL from the book (not a /baby/chN deep link).

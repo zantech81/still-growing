@@ -1,4 +1,4 @@
--- Seed: "Life Lessons from a Baby" — content pulled verbatim from
+-- Seed: "Life Lessons from a Baby". Content pulled verbatim from
 -- Life_Lessons_from_a_Baby_Ebook_v5.pdf (the confirmed source of truth).
 
 insert into public.collections (name, description, sort_order, status)

@@ -49,7 +49,7 @@ export default async function AdminDashboard() {
 
       {(booksByStatus.draft ?? 0) > 0 && (
         <p className="mt-8 text-sm text-gray-400">
-          {booksByStatus.draft} draft book{booksByStatus.draft === 1 ? "" : "s"} — <Link href="/admin/books" className="text-pink-deep hover:underline">publish when ready</Link>
+          {booksByStatus.draft} draft book{booksByStatus.draft === 1 ? "" : "s"}, <Link href="/admin/books" className="text-pink-deep hover:underline">publish when ready</Link>
         </p>
       )}
     </div>

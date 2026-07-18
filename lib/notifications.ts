@@ -11,7 +11,7 @@ import {
 
 // Called after a reaction insert. Looks up the reflection author, skips
 // self-reactions, inserts a notification row, sends the email, and marks
-// email_sent. Never throws — all errors are logged.
+// email_sent. Never throws. All errors are logged.
 export async function notifyReaction(
   reflectionId: string,
   reactorUserId: string
@@ -73,7 +73,7 @@ export async function notifyReaction(
 // Called when an admin publishes a book. Sends to all platform members.
 // Inserts a notification row per user regardless of whether the email
 // succeeds, and marks email_sent only for successful sends.
-// Never throws — all errors are logged.
+// Never throws. All errors are logged.
 export async function notifyBookLaunch(bookId: string): Promise<void> {
   try {
     const supabase = createAdminClient();

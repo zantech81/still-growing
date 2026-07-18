@@ -4,7 +4,7 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-// No purchase check here — honor system. Anyone can create an account;
+// No purchase check here. Honor system: anyone can create an account;
 // the book itself is where the value already was.
 export default function LoginPage() {
   return (

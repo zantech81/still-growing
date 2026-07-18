@@ -1,4 +1,4 @@
--- Still Growing — Initial schema
+-- Still Growing: Initial schema
 -- Reflects Still_Growing_Data_Schema.md, adjusted for the honor-system decision:
 -- no purchase_tag verification, no RedemptionCode. systeme_contact_id is a
 -- write-only marketing sync target, not a gate.

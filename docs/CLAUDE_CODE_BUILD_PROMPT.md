@@ -67,6 +67,10 @@ override anything in the docs that conflicts:
   the admin on the book create/edit form (Step 5); `lib/reservedSlugs.ts` is
   the single source of truth for slug words that must never be used as book
   slugs, imported by both `middleware.ts` and the admin book form.
+- **Never use em dashes (—) in any user-facing copy, error messages, email
+  templates, or content generated for this project.** Use periods, commas,
+  or natural rephrasing instead. This applies to all future work, not just
+  content matching the ebook.
 
 ## Build order
 

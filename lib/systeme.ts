@@ -5,12 +5,12 @@ const PLATFORM_TAG = "platform-member";
 const TIMEOUT_MS = 5_000;
 
 // Syncs a newly signed-in user to Systeme.io as a marketing contact.
-// Safe to call on every login — exits immediately if already synced.
+// Safe to call on every login: exits immediately if already synced.
 // Never throws: all errors are logged and the caller is unaffected.
 export async function syncSystemeContact(userId: string, email: string): Promise<void> {
   const apiKey = process.env.SYSTEME_API_KEY;
   if (!apiKey) {
-    console.warn("[systeme] SYSTEME_API_KEY not set — skipping sync");
+    console.warn("[systeme] SYSTEME_API_KEY not set, skipping sync");
     return;
   }
   if (!email) return;

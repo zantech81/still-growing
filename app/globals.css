@@ -3,6 +3,11 @@
 @tailwind utilities;
 
 @layer base {
+  body {
+    background: linear-gradient(160deg, #FBF7F2 0%, #FDF0F4 100%);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
   h1, h2, h3 {
     @apply font-display text-plum;
   }

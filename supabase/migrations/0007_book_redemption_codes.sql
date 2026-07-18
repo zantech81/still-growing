@@ -1,6 +1,6 @@
 -- Per-book access control via redemption codes.
 -- Each book has one shared code (set by admin); readers enter it once to unlock.
--- book_unlocks is the gate — Journey/chapter pages redirect to /library if absent.
+-- book_unlocks is the gate. Journey/chapter pages redirect to /library if absent.
 
 -- One shared code per book, nullable so a book can be created before its code is set
 ALTER TABLE public.books ADD COLUMN redemption_code text UNIQUE;

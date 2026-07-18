@@ -23,7 +23,7 @@ async function requireAdmin(): Promise<boolean> {
   return !!data?.is_admin;
 }
 
-// POST — create a single-use direct upload URL from Mux.
+// POST: create a single-use direct upload URL from Mux.
 // The browser then PUTs the video file directly to that URL (never through
 // our server). Returns { uploadId, uploadUrl }.
 export async function POST() {
@@ -53,7 +53,7 @@ export async function POST() {
   return NextResponse.json({ uploadId: data.id, uploadUrl: data.url });
 }
 
-// GET ?uploadId=xxx — poll Mux for upload/asset status.
+// GET ?uploadId=xxx: poll Mux for upload/asset status.
 // Returns { status: "processing" | "ready" | "errored", playbackId? }.
 // The browser polls this every few seconds after the upload completes.
 export async function GET(request: Request) {
@@ -89,7 +89,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ status: "processing" });
   }
 
-  // Step 2: asset exists — fetch it to get the playback ID.
+  // Step 2: asset exists, fetch it to get the playback ID.
   const assetRes = await fetch(`${MUX_BASE}/video/v1/assets/${upload.asset_id}`, {
     headers: { Authorization: auth },
   });

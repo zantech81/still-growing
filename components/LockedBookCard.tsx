@@ -62,29 +62,32 @@ export default function LockedBookCard({
 
   return (
     <div
-      className={`flex gap-5 bg-white border border-pink-pale rounded-xl2 p-5 opacity-70 ${
+      className={`flex gap-4 bg-white border border-pink-pale rounded-xl2 p-4 opacity-70 ${
         !expanded ? "cursor-pointer hover:border-pink-dusty hover:opacity-90" : ""
       } transition-all`}
       onClick={!expanded ? handleCardClick : undefined}
     >
-      {/* Cover — grayscale while locked */}
+      {/* Cover: grayscale while locked */}
       {coverImageUrl ? (
         <img
           src={coverImageUrl}
           alt={title}
-          className="w-16 h-20 object-cover rounded-lg flex-shrink-0 grayscale"
+          className="w-[50px] aspect-[5/8] min-w-[50px] object-cover rounded-lg flex-shrink-0 self-start grayscale"
         />
       ) : (
-        <div className="w-16 h-20 bg-gray-100 rounded-lg flex-shrink-0 flex items-center justify-center text-2xl select-none">
+        <div
+          className="w-[50px] aspect-[5/8] rounded-lg flex-shrink-0 flex items-center justify-center text-xl select-none opacity-40"
+          style={{ background: "linear-gradient(145deg, #F7E1E9, #E6F1FB)" }}
+        >
           📖
         </div>
       )}
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <h3 className="text-xl leading-snug mb-0.5 text-gray-500">{title}</h3>
+        <h3 className="font-display text-plum text-[1.05rem] leading-snug mb-0.5 opacity-60">{title}</h3>
         {subtitle && (
-          <p className="text-sm text-gray-300 mb-3 leading-snug">{subtitle}</p>
+          <p className="text-xs text-gray-400 mb-3 leading-snug">{subtitle}</p>
         )}
 
         {!expanded ? (

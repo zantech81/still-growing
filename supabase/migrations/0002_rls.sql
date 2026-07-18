@@ -1,4 +1,4 @@
--- Row-Level Security — honor-system app, but every write is still scoped
+-- Row-Level Security. Honor-system app, but every write is still scoped
 -- to the authenticated user. Content tables are public-read once published.
 
 alter table public.users enable row level security;

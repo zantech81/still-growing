@@ -45,7 +45,7 @@ export default function MuxUploader({ value, onChange }: Props) {
       uploadId = data.uploadId;
       uploadUrl = data.uploadUrl;
     } catch (err) {
-      setPhase({ tag: "error", msg: "Could not create upload — check your connection and try again." });
+      setPhase({ tag: "error", msg: "Could not create upload. Check your connection and try again." });
       console.error("[mux-uploader] Create upload error:", err);
       return;
     }
@@ -56,7 +56,7 @@ export default function MuxUploader({ value, onChange }: Props) {
         setPhase({ tag: "uploading", pct })
       );
     } catch (err) {
-      setPhase({ tag: "error", msg: "Upload failed — please try again." });
+      setPhase({ tag: "error", msg: "Upload failed. Please try again." });
       console.error("[mux-uploader] Upload error:", err);
       return;
     }
@@ -81,10 +81,10 @@ export default function MuxUploader({ value, onChange }: Props) {
           setPhase({ tag: "error", msg: "Mux reported an error processing this video. Try a different file." });
           return;
         }
-        // Still processing — poll again in 4 s.
+        // Still processing, poll again in 4 s.
         pollForPlaybackId(uploadId);
       } catch {
-        // Network hiccup — try again.
+        // Network hiccup, try again.
         pollForPlaybackId(uploadId);
       }
     }, 4_000);
@@ -152,7 +152,7 @@ export default function MuxUploader({ value, onChange }: Props) {
         <div className="flex items-center gap-3 text-sm text-gray-500">
           <Spinner />
           <span>
-            Mux is processing your video — this usually takes 1–3 minutes.
+            Mux is processing your video. This usually takes 1–3 minutes.
             <br />
             <span className="text-xs text-gray-400">
               You can save other changes now; come back to save the video when it&rsquo;s ready.
@@ -164,7 +164,7 @@ export default function MuxUploader({ value, onChange }: Props) {
       {phase.tag === "ready" && (
         <div className="flex items-center gap-3">
           <span className="text-xs text-green-700 bg-green-soft px-2.5 py-1 rounded-full font-medium">
-            ✓ Video ready — save to apply
+            ✓ Video ready, save to apply
           </span>
           <button
             type="button"
@@ -189,7 +189,7 @@ export default function MuxUploader({ value, onChange }: Props) {
         </div>
       )}
 
-      {/* Manual override — hidden by default */}
+      {/* Manual override: hidden by default */}
       <div>
         <button
           type="button"

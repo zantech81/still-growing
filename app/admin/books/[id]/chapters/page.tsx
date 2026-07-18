@@ -51,7 +51,7 @@ export default async function AdminChaptersPage({ params }: { params: { id: stri
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-plum truncate">{ch.title}</p>
                   <p className="text-xs text-gray-400">
-                    {ch.milestone_label ?? "—"}
+                    {ch.milestone_label ?? "Not set"}
                     {badge ? ` · Badge: ${badge.name}` : ""}
                     {ch.mux_playback_id ? " · Video ✓" : ""}
                   </p>
