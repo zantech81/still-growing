@@ -32,7 +32,15 @@ export async function POST(request: Request) {
     await notifyReaction(reflectionId, user.id);
   }
 
-  return NextResponse.json({ ok: true });
+  // Return the authoritative hearts_count from the DB (trigger has already run
+  // synchronously within the same transaction, so this value is accurate).
+  const { data: reflection } = await supabase
+    .from("reflections")
+    .select("hearts_count")
+    .eq("id", reflectionId)
+    .single();
+
+  return NextResponse.json({ ok: true, hearts_count: reflection?.hearts_count ?? null });
 }
 
 export async function DELETE(request: Request) {
@@ -61,5 +69,11 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  const { data: reflection } = await supabase
+    .from("reflections")
+    .select("hearts_count")
+    .eq("id", reflectionId)
+    .single();
+
+  return NextResponse.json({ ok: true, hearts_count: reflection?.hearts_count ?? null });
 }
