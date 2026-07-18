@@ -11,11 +11,11 @@ export interface MailOptions {
 }
 
 // Returns true if the email was accepted by SendGrid (202), false otherwise.
-// Never throws — errors are logged and the caller can check the return value.
+// Never throws. Errors are logged and the caller can check the return value.
 export async function sendEmail({ to, subject, text, html }: MailOptions): Promise<boolean> {
   const apiKey = process.env.SENDGRID_API_KEY;
   if (!apiKey) {
-    console.warn("[sendgrid] SENDGRID_API_KEY not set — skipping email to:", to);
+    console.warn("[sendgrid] SENDGRID_API_KEY not set, skipping email to:", to);
     return false;
   }
 
@@ -119,4 +119,21 @@ export function newBookEmailHtml(bookTitle: string, bookSlug: string): string {
 
 export function newBookEmailText(bookTitle: string): string {
   return `A new book has been added to your Still Growing library: ${bookTitle}.\n\nVisit your Library: ${siteUrl}/library`;
+}
+
+export function birthdayEmailHtml(nickname: string): string {
+  return wrap(`
+    <h1 style="margin:0 0 16px;font-size:24px;color:#4A2C3D;font-weight:normal;">Happy birthday, ${nickname}!</h1>
+    <p style="margin:0;font-size:16px;line-height:1.7;color:#3A3A3A;font-family:sans-serif;">
+      Today is a good day to remember. You were born ready. And still are.
+    </p>
+    <p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#888;font-family:sans-serif;">
+      Keep growing. Keep going.
+    </p>
+    ${btn(`${siteUrl}/library`, "Continue your journey →")}
+  `);
+}
+
+export function birthdayEmailText(nickname: string): string {
+  return `Happy birthday, ${nickname}!\n\nToday is a good day to remember. You were born ready. Still are.\n\nKeep growing. ${siteUrl}/library`;
 }
