@@ -41,6 +41,8 @@ export async function middleware(request: NextRequest) {
     isJourneyRoute ||
     request.nextUrl.pathname.startsWith("/library") ||
     request.nextUrl.pathname.startsWith("/circle") ||
+    request.nextUrl.pathname.startsWith("/growing") ||
+    request.nextUrl.pathname.startsWith("/journey") ||
     request.nextUrl.pathname.startsWith("/account") ||
     request.nextUrl.pathname.startsWith("/admin");
 

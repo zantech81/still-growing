@@ -5,8 +5,12 @@ export const RESERVED_SLUGS = new Set([
   "login",
   "library",
   "circle",
+  "growing",
+  "journey",
   "account",
   "auth",
   "api",   // Next.js API routes live under /api/*
-  "admin", // Admin dashboard
+  "admin",       // Admin dashboard
+  "onboarding",  // Profile completion gate
+  "r",           // Public share landing pages (/r/[shareId])
 ]);
