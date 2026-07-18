@@ -8,7 +8,7 @@ export default async function EditBookPage({ params }: { params: { id: string } 
   const [{ data: book }, { data: collections }] = await Promise.all([
     supabase
       .from("books")
-      .select("id, collection_id, title, subtitle, description, slug, cover_image_url, redemption_code, status")
+      .select("id, collection_id, title, subtitle, description, slug, cover_image_url, banner_image_url, share_banner_image_url, sales_page_url, redemption_code, status, reveal_details, placeholder_text, gamification_config")
       .eq("id", params.id)
       .single(),
     supabase.from("collections").select("id, name").order("name"),

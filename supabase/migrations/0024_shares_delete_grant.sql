@@ -1,0 +1,11 @@
+-- DELETE ... WHERE requires SELECT privilege to evaluate the WHERE clause
+-- and the RLS USING check, even when only rows the caller owns are ever
+-- touched (0023 granted delete but not select, causing every delete to
+-- fail with 42501 "permission denied for table shares").
+--
+-- This is safe to add: shares has no permissive SELECT policy (see the
+-- comment in 0023_shares.sql), so RLS still returns zero rows for any
+-- plain `select` an authenticated user runs against this table. This
+-- grant only unblocks the internal row-visibility check DELETE needs; it
+-- does not by itself allow listing or reading share rows.
+grant select on public.shares to authenticated;
