@@ -102,7 +102,7 @@ export default async function CirclePage({
     supabase
       .from("reflections")
       .select(
-        "id, user_id, text, chapter_number, hearts_count, edit_count, allow_external_share, created_at, users(nickname, display_name, avatar_color, country_code)"
+        "id, user_id, text, chapter_number, hearts_count, edit_count, allow_external_share, created_at"
       )
       .eq("book_id", book.id)
       .lte("chapter_number", currentChapter)
@@ -117,7 +117,29 @@ export default async function CirclePage({
       .order("number"),
   ]);
 
-  const reflections = (rawReflections ?? []) as unknown as ReflectionRow[];
+  // Author display data no longer comes from an embedded users(...) join:
+  // public.users' own RLS is now scoped to "own row or admin" (see
+  // 0033_users_rls_column_scoping.sql), and an embedded PostgREST join
+  // still enforces the joined table's RLS, so this would silently return
+  // null authors for every reflection not written by the viewer. The safe
+  // public subset (nickname, display_name, avatar_color, country_code) is
+  // fetched separately from public_profiles -- a view with no row
+  // restriction of its own -- and merged in here instead.
+  const rawReflectionRows = rawReflections ?? [];
+  const authorIds = [...new Set(rawReflectionRows.map((r) => r.user_id as string))];
+  const { data: authorProfiles } =
+    authorIds.length > 0
+      ? await supabase
+          .from("public_profiles")
+          .select("id, nickname, display_name, avatar_color, country_code")
+          .in("id", authorIds)
+      : { data: [] as { id: string }[] };
+  const authorsById = new Map((authorProfiles ?? []).map((p) => [p.id, p]));
+
+  const reflections = rawReflectionRows.map((r) => ({
+    ...r,
+    users: authorsById.get(r.user_id as string) ?? null,
+  })) as unknown as ReflectionRow[];
   const chapters = (rawChapters ?? []) as unknown as ChapterRow[];
 
   const reflectionIds = reflections.map((r) => r.id);

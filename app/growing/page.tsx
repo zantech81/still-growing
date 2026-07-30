@@ -56,8 +56,12 @@ export default async function GrowingPage() {
   // sites (CircleFeed.tsx only renders a flag when country_code is set).
   const countryCounts = new Map<string, number>();
   if (personIds.length > 0) {
+    // public_profiles, not users directly: these are OTHER people's rows,
+    // and public.users' own RLS is now scoped to "own row or admin" (see
+    // 0033_users_rls_column_scoping.sql). public_profiles has no row
+    // restriction of its own, only a safe column subset.
     const { data: connectedUsers } = await supabase
-      .from("users")
+      .from("public_profiles")
       .select("country_code")
       .in("id", personIds);
     for (const row of connectedUsers ?? []) {
