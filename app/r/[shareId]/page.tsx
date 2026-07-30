@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getUnifiedConnectionCount, getConnectionsSummary } from "@/lib/connections";
+import { getConnectionsSummary } from "@/lib/connections";
 import { COUNTRIES } from "@/lib/countries";
 import FlagImg from "@/components/FlagImg";
 
@@ -66,17 +66,6 @@ async function getReflectionCaption(admin: ReturnType<typeof createAdminClient>,
   return `“${truncate(reflection.text, 140)}”`;
 }
 
-async function getGrowingTreeCaption(admin: ReturnType<typeof createAdminClient>, userId: string): Promise<string | null> {
-  const [{ data: owner }, connectionCount] = await Promise.all([
-    admin.from("users").select("nickname, display_name").eq("id", userId).maybeSingle(),
-    getUnifiedConnectionCount(admin, userId),
-  ]);
-  const name = owner?.nickname ?? owner?.display_name ?? "This reader";
-  if (connectionCount === 0) return `${name} is just getting started`;
-  if (connectionCount === 1) return `1 person rooting for ${name}'s growth`;
-  return `${connectionCount} people rooting for ${name}'s growth`;
-}
-
 type GrowingTreeExtra = {
   ownerName: string;
   growingSince: string | null;
@@ -133,8 +122,11 @@ async function getGrowingTreeExtra(
 // Extra on-page context beneath the hero card, on top of whatever's
 // already baked into the OG image itself -- one per share type, since
 // each type's meaningful context lives in a different place (a badge's
-// chapter, a reflection's own text, a book's progress count, a person's
-// connection count).
+// chapter, a reflection's own text, a book's progress count). growing_tree
+// has no caption of its own: "N people rooting for {name}'s growth" is
+// already the OG image's own headline text (growingTreeCardTree), and
+// getGrowingTreeExtra below adds genuinely new context (growing-since
+// date, country breakdown) instead of repeating it.
 async function getShareCaption(admin: ReturnType<typeof createAdminClient>, share: Share): Promise<string | null> {
   if (share.type === "badge") {
     return share.reference_id ? getBadgeCaption(admin, share.reference_id) : null;
@@ -145,7 +137,7 @@ async function getShareCaption(admin: ReturnType<typeof createAdminClient>, shar
   if (share.type === "reflection") {
     return share.reference_id ? getReflectionCaption(admin, share.reference_id) : null;
   }
-  return getGrowingTreeCaption(admin, share.user_id);
+  return null;
 }
 
 // Public route: looked up with the service-role client, same as the OG
@@ -239,12 +231,8 @@ export default async function ShareLandingPage({ params }: { params: { shareId: 
         // can render "between" pixels already flattened into one PNG.
         <div className="rounded-2xl border border-pink-pale shadow-xl bg-cream overflow-hidden mb-16">
           <img src={imageUrl} alt="Shared from Still Growing" className="w-full block" />
-          {(caption ||
-            (growingTreeExtra && (growingTreeExtra.growingSince || growingTreeExtra.totalCountryCount > 0)) ||
-            (growingTreeExtra && growingTreeExtra.visibleCountries.length > 0)) && (
+          {growingTreeExtra && (growingTreeExtra.growingSince || growingTreeExtra.totalCountryCount > 0 || growingTreeExtra.visibleCountries.length > 0) && (
             <div className="px-8 pt-3 pb-7">
-              {caption && <p className="text-center text-sm text-gray-400 mb-2">{caption}</p>}
-
               {growingTreeExtra && (growingTreeExtra.growingSince || growingTreeExtra.totalCountryCount > 0) && (
                 <div className="flex flex-wrap justify-center gap-x-6 gap-y-1 text-xs text-gray-400">
                   {growingTreeExtra.growingSince && <span>Growing since {growingTreeExtra.growingSince}</span>}
