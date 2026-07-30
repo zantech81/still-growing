@@ -4,7 +4,15 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getUnifiedConnectionCount } from "@/lib/connections";
+import { getUnifiedConnectionCount, getConnectionsSummary } from "@/lib/connections";
+import { COUNTRIES } from "@/lib/countries";
+import FlagImg from "@/components/FlagImg";
+
+const COUNTRY_NAMES = new Map(COUNTRIES.map((c) => [c.code, c.name]));
+// Same overflow cap as app/growing/page.tsx's own country grid, reused
+// here rather than reinvented so the two pages agree on when "+N more
+// countries" kicks in.
+const COUNTRY_DISPLAY_CAP = 9;
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stillgrowing.co";
 
@@ -67,6 +75,59 @@ async function getGrowingTreeCaption(admin: ReturnType<typeof createAdminClient>
   if (connectionCount === 0) return `${name} is just getting started`;
   if (connectionCount === 1) return `1 person rooting for ${name}'s growth`;
   return `${connectionCount} people rooting for ${name}'s growth`;
+}
+
+type GrowingTreeExtra = {
+  ownerName: string;
+  growingSince: string | null;
+  totalCountryCount: number;
+  visibleCountries: { code: string; count: number; name: string }[];
+  hiddenCountryCount: number;
+};
+
+// "Growing since" + the per-country flag breakdown, straight from the
+// same getConnectionsSummary this share type's OG headline count already
+// uses (see getGrowingTreeCaption above) -- not rebuilt, just the same
+// query app/growing/page.tsx runs, reused here for a stranger looking at
+// someone else's shared tree instead of the owner's own page. Also
+// resolves the owner's name again (a second, separate one-row lookup
+// from getGrowingTreeCaption's own): app/growing/page.tsx's "N countries
+// growing with you" reads fine in first person on the owner's own page,
+// but a stranger reading a shared link isn't the "you" being rooted for,
+// so this needs the owner's name instead, matching the third-person
+// framing the rest of this page already uses.
+async function getGrowingTreeExtra(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string
+): Promise<GrowingTreeExtra> {
+  const [{ data: owner }, { personIds, earliestConnectedAt }] = await Promise.all([
+    admin.from("users").select("nickname, display_name").eq("id", userId).maybeSingle(),
+    getConnectionsSummary(admin, userId),
+  ]);
+  const ownerName = owner?.nickname ?? owner?.display_name ?? "this reader";
+
+  const countryCounts = new Map<string, number>();
+  if (personIds.length > 0) {
+    const { data: connectedUsers } = await admin.from("users").select("country_code").in("id", personIds);
+    for (const row of connectedUsers ?? []) {
+      if (!row.country_code) continue;
+      countryCounts.set(row.country_code, (countryCounts.get(row.country_code) ?? 0) + 1);
+    }
+  }
+  const countryBreakdown = [...countryCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([code, count]) => ({ code, count, name: COUNTRY_NAMES.get(code) ?? code }));
+  const visibleCountries = countryBreakdown.slice(0, COUNTRY_DISPLAY_CAP);
+
+  return {
+    ownerName,
+    growingSince: earliestConnectedAt
+      ? new Date(earliestConnectedAt).toLocaleDateString("en", { month: "long", day: "numeric", year: "numeric" })
+      : null,
+    totalCountryCount: countryBreakdown.length,
+    visibleCountries,
+    hiddenCountryCount: countryBreakdown.length - visibleCountries.length,
+  };
 }
 
 // Extra on-page context beneath the hero card, on top of whatever's
@@ -139,13 +200,14 @@ export default async function ShareLandingPage({ params }: { params: { shareId: 
   if (!share) notFound();
 
   const admin = createAdminClient();
-  const [{ data: book }, caption] = await Promise.all([
+  const [{ data: book }, caption, growingTreeExtra] = await Promise.all([
     admin
       .from("books")
       .select("slug, title, cover_image_url, sales_page_url")
       .eq("id", share.book_id)
       .maybeSingle(),
     getShareCaption(admin, share),
+    share.type === "growing_tree" ? getGrowingTreeExtra(admin, share.user_id) : Promise.resolve(null),
   ]);
 
   // The real Systeme.io sales page URL can't be derived from the book
@@ -170,10 +232,40 @@ export default async function ShareLandingPage({ params }: { params: { shareId: 
         alt="Shared from Still Growing"
         className="w-full rounded-2xl border border-pink-pale shadow-xl mb-4"
       />
-      {caption && (
-        <p className="text-center text-sm text-gray-400 mb-16">{caption}</p>
-      )}
-      {!caption && <div className="mb-16" />}
+      <div className="mb-16">
+        {caption && <p className="text-center text-sm text-gray-400">{caption}</p>}
+
+        {/* Additive context for growing_tree only, matching what the
+            owner's own /growing page shows beneath their tree: how long
+            they've been growing, and who's rooting for them by country.
+            Same query as that page (getConnectionsSummary), not rebuilt. */}
+        {growingTreeExtra && (growingTreeExtra.growingSince || growingTreeExtra.totalCountryCount > 0) && (
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-1 mt-2 text-xs text-gray-400">
+            {growingTreeExtra.growingSince && <span>Growing since {growingTreeExtra.growingSince}</span>}
+            {growingTreeExtra.totalCountryCount > 0 && (
+              <span>
+                {growingTreeExtra.totalCountryCount}{" "}
+                {growingTreeExtra.totalCountryCount === 1 ? "country" : "countries"} rooting for{" "}
+                {growingTreeExtra.ownerName}&apos;s growth
+              </span>
+            )}
+          </div>
+        )}
+
+        {growingTreeExtra && growingTreeExtra.visibleCountries.length > 0 && (
+          <div className="grid grid-cols-3 gap-x-3 gap-y-2 justify-items-center mt-4 max-w-sm mx-auto text-sm text-ink">
+            {growingTreeExtra.visibleCountries.map(({ code, count, name }) => (
+              <span key={code} className="flex items-center gap-1.5">
+                <FlagImg code={code} className="rounded-sm" />
+                {name} · {count}
+              </span>
+            ))}
+            {growingTreeExtra.hiddenCountryCount > 0 && (
+              <span className="col-span-3 text-gray-400">+{growingTreeExtra.hiddenCountryCount} more countries</span>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Book pitch, written for cold traffic with zero prior context.
           Deliberately compact: a thumbnail (not a full lifestyle photo)
