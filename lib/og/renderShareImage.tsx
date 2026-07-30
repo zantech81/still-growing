@@ -233,13 +233,20 @@ export function progressCardTree({
                 justifyContent: "center",
                 backgroundColor: filled ? COLORS.gold : COLORS.cream,
                 border: filled ? "none" : `4px solid ${COLORS.pinkPale}`,
-                color: "#ffffff",
-                fontSize: 28,
-                fontWeight: 700,
-                fontFamily: "Nunito",
               }}
             >
-              {filled ? "✓" : ""}
+              {/* A raw "✓" character here previously rendered as a missing-
+                  glyph tofu box: Satori has no system-font fallback, and
+                  that glyph isn't in the Nunito webfont subset loaded for
+                  this image. Two <line> segments instead, the same
+                  primitive already proven safe in growingTreeCardTree
+                  below, sidesteps font-coverage entirely. */}
+              {filled && (
+                <svg width="32" height="32" viewBox="0 0 24 24">
+                  <line x1="4" y1="12.5" x2="9.5" y2="18" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" />
+                  <line x1="9.5" y1="18" x2="20" y2="5.5" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" />
+                </svg>
+              )}
             </div>
           ))}
         </div>
