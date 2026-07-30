@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getUnifiedConnectionCount } from "@/lib/connections";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stillgrowing.co";
 
@@ -25,16 +26,12 @@ async function getShare(shareId: string): Promise<Share | null> {
   return data;
 }
 
-// Extra on-page context beneath the hero card, on top of whatever's
-// already baked into the OG image itself. Currently wired up for badge
-// shares only (the chapter it was earned in) -- reflection/progress/
-// growing_tree get the same enlarged hero + demoted book section, but no
-// equivalent caption yet, pending confirmation of this same treatment
-// for those three.
-async function getBadgeChapterCaption(
-  admin: ReturnType<typeof createAdminClient>,
-  badgeId: string
-): Promise<string | null> {
+function truncate(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max - 1).trimEnd() + "…";
+}
+
+async function getBadgeCaption(admin: ReturnType<typeof createAdminClient>, badgeId: string): Promise<string | null> {
   const { data: badge } = await admin.from("badges").select("chapter_id").eq("id", badgeId).maybeSingle();
   if (!badge) return null;
   const { data: chapter } = await admin
@@ -44,6 +41,50 @@ async function getBadgeChapterCaption(
     .maybeSingle();
   if (!chapter) return null;
   return `Chapter ${chapter.number}: ${chapter.title}`;
+}
+
+async function getProgressCaption(admin: ReturnType<typeof createAdminClient>, share: Share): Promise<string | null> {
+  const [{ data: userBook }, { count: totalChapters }] = await Promise.all([
+    admin.from("user_books").select("badges_earned").eq("user_id", share.user_id).eq("book_id", share.book_id).maybeSingle(),
+    admin.from("chapters").select("id", { count: "exact", head: true }).eq("book_id", share.book_id),
+  ]);
+  if (!totalChapters) return null;
+  return `${userBook?.badges_earned ?? 0} of ${totalChapters} badges earned`;
+}
+
+async function getReflectionCaption(admin: ReturnType<typeof createAdminClient>, reflectionId: string): Promise<string | null> {
+  const { data: reflection } = await admin.from("reflections").select("text").eq("id", reflectionId).maybeSingle();
+  if (!reflection) return null;
+  return `“${truncate(reflection.text, 140)}”`;
+}
+
+async function getGrowingTreeCaption(admin: ReturnType<typeof createAdminClient>, userId: string): Promise<string | null> {
+  const [{ data: owner }, connectionCount] = await Promise.all([
+    admin.from("users").select("nickname, display_name").eq("id", userId).maybeSingle(),
+    getUnifiedConnectionCount(admin, userId),
+  ]);
+  const name = owner?.nickname ?? owner?.display_name ?? "This reader";
+  if (connectionCount === 0) return `${name} is just getting started`;
+  if (connectionCount === 1) return `1 person rooting for ${name}'s growth`;
+  return `${connectionCount} people rooting for ${name}'s growth`;
+}
+
+// Extra on-page context beneath the hero card, on top of whatever's
+// already baked into the OG image itself -- one per share type, since
+// each type's meaningful context lives in a different place (a badge's
+// chapter, a reflection's own text, a book's progress count, a person's
+// connection count).
+async function getShareCaption(admin: ReturnType<typeof createAdminClient>, share: Share): Promise<string | null> {
+  if (share.type === "badge") {
+    return share.reference_id ? getBadgeCaption(admin, share.reference_id) : null;
+  }
+  if (share.type === "progress") {
+    return getProgressCaption(admin, share);
+  }
+  if (share.type === "reflection") {
+    return share.reference_id ? getReflectionCaption(admin, share.reference_id) : null;
+  }
+  return getGrowingTreeCaption(admin, share.user_id);
 }
 
 // Public route: looked up with the service-role client, same as the OG
@@ -104,9 +145,7 @@ export default async function ShareLandingPage({ params }: { params: { shareId: 
       .select("slug, title, cover_image_url, sales_page_url")
       .eq("id", share.book_id)
       .maybeSingle(),
-    share.type === "badge" && share.reference_id
-      ? getBadgeChapterCaption(admin, share.reference_id)
-      : Promise.resolve(null),
+    getShareCaption(admin, share),
   ]);
 
   // The real Systeme.io sales page URL can't be derived from the book
@@ -162,8 +201,9 @@ export default async function ShareLandingPage({ params }: { params: { shareId: 
         </div>
 
         <p className="text-xs text-gray-400 mb-6 leading-relaxed">
-          Free ebook access, a badge and video for every chapter, and your own space to
-          reflect alongside other readers.
+          A badge and video for every chapter, and your own space to reflect alongside
+          other readers. Free lifetime access to the Still Growing app, no subscription,
+          ever.
         </p>
 
         {salesUrl && (
