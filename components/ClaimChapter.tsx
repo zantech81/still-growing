@@ -365,6 +365,9 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
               <label className="text-xs uppercase tracking-widest text-gray-400 block mb-1.5">
                 Password
               </label>
+              <p className="text-xs text-gray-400 mb-2">
+                Enter the password from your chapter.
+              </p>
               <input
                 type="text"
                 value={unlockCode}
@@ -373,7 +376,7 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
                   setError(null);
                 }}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm uppercase tracking-widest focus:outline-none focus:border-pink-dusty transition-colors bg-white"
-                placeholder="Enter the password from your chapter"
+                placeholder="Password"
                 spellCheck={false}
               />
             </div>
