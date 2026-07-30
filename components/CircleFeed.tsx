@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import FlagImg from "@/components/FlagImg";
+import Avatar from "@/components/Avatar";
 import ReflectionActions from "@/components/ReflectionActions";
 import ShareButton from "@/components/ShareButton";
 
 type Author = {
   nickname: string | null;
   display_name: string;
+  avatar_key: string | null;
   avatar_color: string;
   country_code: string | null;
 };
@@ -351,7 +353,6 @@ export default function CircleFeed({
             const hasReacted = reacted.has(r.id);
             const count = heartCounts[r.id] ?? 0;
             const authorName = author?.nickname ?? author?.display_name ?? "Someone";
-            const initial = authorName[0].toUpperCase();
 
             return (
               <div
@@ -359,21 +360,16 @@ export default function CircleFeed({
                 className="bg-white border border-pink-pale rounded-xl2 p-5"
               >
                 <div className="flex items-center gap-3 mb-3">
-                  <div
-                    className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-medium text-white"
-                    style={{ backgroundColor: author?.avatar_color ?? "#E8A0B8" }}
-                  >
-                    {initial}
-                  </div>
-                  <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                    <span className="text-sm font-medium text-ink">{authorName}</span>
-                    {author?.country_code && (
-                      <FlagImg
-                        code={author.country_code}
-                        className="inline-block rounded-sm flex-shrink-0"
-                      />
-                    )}
-                  </div>
+                  <Link href={`/u/${r.user_id}`} className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity">
+                    <Avatar
+                      avatarKey={author?.avatar_key ?? null}
+                      countryCode={author?.country_code ?? null}
+                      avatarColor={author?.avatar_color ?? "#E8A0B8"}
+                      name={authorName}
+                      size={32}
+                    />
+                    <span className="text-sm font-medium text-ink truncate">{authorName}</span>
+                  </Link>
                   <div className="flex items-center gap-1.5 flex-shrink-0 text-xs text-gray-300">
                     <span>Ch.&nbsp;{r.chapter_number}</span>
                     <span>·</span>

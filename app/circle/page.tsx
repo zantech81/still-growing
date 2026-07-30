@@ -131,7 +131,7 @@ export default async function CirclePage({
     authorIds.length > 0
       ? await supabase
           .from("public_profiles")
-          .select("id, nickname, display_name, avatar_color, country_code")
+          .select("id, nickname, display_name, avatar_key, avatar_color, country_code")
           .in("id", authorIds)
       : { data: [] as { id: string }[] };
   const authorsById = new Map((authorProfiles ?? []).map((p) => [p.id, p]));
