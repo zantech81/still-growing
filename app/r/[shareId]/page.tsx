@@ -227,45 +227,65 @@ export default async function ShareLandingPage({ params }: { params: { shareId: 
           not just font size. */}
       <p className="text-center text-sm text-pink-deep italic mb-8">{framingLine(share.type)}</p>
 
-      <img
-        src={imageUrl}
-        alt="Shared from Still Growing"
-        className="w-full rounded-2xl border border-pink-pale shadow-xl mb-4"
-      />
-      <div className="mb-16">
-        {caption && <p className="text-center text-sm text-gray-400">{caption}</p>}
+      {share.type === "growing_tree" ? (
+        // Merged into one card rather than image-plus-floating-text below
+        // it: the OG image already bakes its own "STILL GROWING" +
+        // share-URL footer into its pixels (lib/og/renderShareImage.tsx,
+        // out of scope here), so the border/shadow/rounded corners move
+        // from the <img> itself onto this wrapper, both share the exact
+        // same cream (#FBF7F2) background as the image's own canvas, and
+        // the stats render below the whole image -- inside the same
+        // continuous card, not above the baked-in footer, since nothing
+        // can render "between" pixels already flattened into one PNG.
+        <div className="rounded-2xl border border-pink-pale shadow-xl bg-cream overflow-hidden mb-16">
+          <img src={imageUrl} alt="Shared from Still Growing" className="w-full block" />
+          {(caption ||
+            (growingTreeExtra && (growingTreeExtra.growingSince || growingTreeExtra.totalCountryCount > 0)) ||
+            (growingTreeExtra && growingTreeExtra.visibleCountries.length > 0)) && (
+            <div className="px-8 pt-3 pb-7">
+              {caption && <p className="text-center text-sm text-gray-400 mb-2">{caption}</p>}
 
-        {/* Additive context for growing_tree only, matching what the
-            owner's own /growing page shows beneath their tree: how long
-            they've been growing, and who's rooting for them by country.
-            Same query as that page (getConnectionsSummary), not rebuilt. */}
-        {growingTreeExtra && (growingTreeExtra.growingSince || growingTreeExtra.totalCountryCount > 0) && (
-          <div className="flex flex-wrap justify-center gap-x-6 gap-y-1 mt-2 text-xs text-gray-400">
-            {growingTreeExtra.growingSince && <span>Growing since {growingTreeExtra.growingSince}</span>}
-            {growingTreeExtra.totalCountryCount > 0 && (
-              <span>
-                {growingTreeExtra.totalCountryCount}{" "}
-                {growingTreeExtra.totalCountryCount === 1 ? "country" : "countries"} rooting for{" "}
-                {growingTreeExtra.ownerName}&apos;s growth
-              </span>
-            )}
-          </div>
-        )}
+              {growingTreeExtra && (growingTreeExtra.growingSince || growingTreeExtra.totalCountryCount > 0) && (
+                <div className="flex flex-wrap justify-center gap-x-6 gap-y-1 text-xs text-gray-400">
+                  {growingTreeExtra.growingSince && <span>Growing since {growingTreeExtra.growingSince}</span>}
+                  {growingTreeExtra.totalCountryCount > 0 && (
+                    <span>
+                      {growingTreeExtra.totalCountryCount}{" "}
+                      {growingTreeExtra.totalCountryCount === 1 ? "country" : "countries"} rooting for{" "}
+                      {growingTreeExtra.ownerName}&apos;s growth
+                    </span>
+                  )}
+                </div>
+              )}
 
-        {growingTreeExtra && growingTreeExtra.visibleCountries.length > 0 && (
-          <div className="grid grid-cols-3 gap-x-3 gap-y-2 justify-items-center mt-4 max-w-sm mx-auto text-sm text-ink">
-            {growingTreeExtra.visibleCountries.map(({ code, count, name }) => (
-              <span key={code} className="flex items-center gap-1.5">
-                <FlagImg code={code} className="rounded-sm" />
-                {name} · {count}
-              </span>
-            ))}
-            {growingTreeExtra.hiddenCountryCount > 0 && (
-              <span className="col-span-3 text-gray-400">+{growingTreeExtra.hiddenCountryCount} more countries</span>
-            )}
+              {growingTreeExtra && growingTreeExtra.visibleCountries.length > 0 && (
+                <div className="grid grid-cols-3 gap-x-3 gap-y-2 justify-items-center mt-4 max-w-sm mx-auto text-sm text-ink">
+                  {growingTreeExtra.visibleCountries.map(({ code, count, name }) => (
+                    <span key={code} className="flex items-center gap-1.5">
+                      <FlagImg code={code} className="rounded-sm" />
+                      {name} · {count}
+                    </span>
+                  ))}
+                  {growingTreeExtra.hiddenCountryCount > 0 && (
+                    <span className="col-span-3 text-gray-400">+{growingTreeExtra.hiddenCountryCount} more countries</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          <img
+            src={imageUrl}
+            alt="Shared from Still Growing"
+            className="w-full rounded-2xl border border-pink-pale shadow-xl mb-4"
+          />
+          <div className="mb-16">
+            {caption && <p className="text-center text-sm text-gray-400">{caption}</p>}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       {/* Book pitch, written for cold traffic with zero prior context.
           Deliberately compact: a thumbnail (not a full lifestyle photo)
