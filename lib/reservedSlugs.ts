@@ -13,4 +13,5 @@ export const RESERVED_SLUGS = new Set([
   "admin",       // Admin dashboard
   "onboarding",  // Profile completion gate
   "r",           // Public share landing pages (/r/[shareId])
+  "u",           // Public profile pages (/u/[userId])
 ]);

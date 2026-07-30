@@ -44,7 +44,8 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/growing") ||
     request.nextUrl.pathname.startsWith("/journey") ||
     request.nextUrl.pathname.startsWith("/account") ||
-    request.nextUrl.pathname.startsWith("/admin");
+    request.nextUrl.pathname.startsWith("/admin") ||
+    request.nextUrl.pathname.startsWith("/u/");
 
   if (!user && isProtectedRoute) {
     const redirectUrl = new URL("/login", request.url);
