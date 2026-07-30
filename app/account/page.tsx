@@ -22,6 +22,7 @@ export default async function AccountPage() {
       <main className="max-w-lg mx-auto px-5 py-8">
         <h1 className="text-3xl mb-10">Account</h1>
         <AccountForm
+          userId={user.id}
           displayName={profile?.display_name ?? ""}
           countryCode={profile?.country_code ?? null}
           nickname={profile?.nickname ?? null}

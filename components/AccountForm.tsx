@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/countries";
 import { AVATARS } from "@/lib/avatars";
@@ -17,6 +18,7 @@ function daysInMonth(month: number): number {
 }
 
 type Props = {
+  userId: string;
   displayName: string;
   countryCode: string | null;
   nickname: string | null;
@@ -27,6 +29,7 @@ type Props = {
 };
 
 export default function AccountForm({
+  userId,
   displayName,
   countryCode,
   nickname,
@@ -162,6 +165,12 @@ export default function AccountForm({
             </button>
           ))}
         </div>
+        <Link
+          href={`/u/${userId}`}
+          className="inline-block text-xs text-pink-deep hover:underline mt-3"
+        >
+          View my profile →
+        </Link>
       </div>
 
       {/* Nickname */}

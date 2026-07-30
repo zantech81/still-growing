@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { COUNTRIES } from "@/lib/countries";
 
 // Shared between app/growing/page.tsx (the live page) and
 // app/api/og/[type]/[shareId]/route.ts (the growing_tree share image), so
@@ -62,4 +63,73 @@ export async function getUnifiedConnectionCount(
 ): Promise<number> {
   const { personIds } = await getConnectionsSummary(supabase, userId);
   return personIds.length;
+}
+
+const COUNTRY_NAMES = new Map(COUNTRIES.map((c) => [c.code, c.name]));
+// Same overflow cap as app/growing/page.tsx's own country grid, reused
+// here rather than reinvented so every page that shows this breakdown
+// agrees on when "+N more countries" kicks in.
+const COUNTRY_DISPLAY_CAP = 9;
+
+export type GrowingTreeExtra = {
+  ownerName: string;
+  // Included so callers that need it (app/u/[userId]/page.tsx, for the
+  // tree itself and its own "N people rooting for..." caption) don't
+  // have to run getConnectionsSummary a second time in parallel just to
+  // get a number this function already computed internally.
+  connectionCount: number;
+  growingSince: string | null;
+  totalCountryCount: number;
+  visibleCountries: { code: string; count: number; name: string }[];
+  hiddenCountryCount: number;
+};
+
+// "Growing since" + the per-country flag breakdown. Shared by
+// app/r/[shareId]/page.tsx (a stranger looking at someone else's shared
+// tree, via the service-role admin client) and app/u/[userId]/page.tsx
+// (any signed-in viewer looking at a profile, via their own cookie-based
+// client) -- both just need a SupabaseClient and a user_id, same as
+// getConnectionsSummary above. Reads from public_profiles, not users
+// directly: userId and personIds are almost always someone OTHER than
+// the caller, and public.users' own RLS is scoped to "own row or admin"
+// (see 0033_users_rls_column_scoping.sql) -- this matters here in a way
+// it didn't when this lived only in the share page, since that page's
+// admin client bypasses RLS entirely, but the profile page's cookie-
+// based client does not. Says "rooting for {name}'s growth" in third
+// person throughout rather than app/growing/page.tsx's own first-person
+// "growing with you": neither of these two callers is ever the person
+// being rooted for.
+export async function getGrowingTreeExtra(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<GrowingTreeExtra> {
+  const [{ data: owner }, { personIds, earliestConnectedAt }] = await Promise.all([
+    supabase.from("public_profiles").select("nickname, display_name").eq("id", userId).maybeSingle(),
+    getConnectionsSummary(supabase, userId),
+  ]);
+  const ownerName = owner?.nickname ?? owner?.display_name ?? "this reader";
+
+  const countryCounts = new Map<string, number>();
+  if (personIds.length > 0) {
+    const { data: connectedUsers } = await supabase.from("public_profiles").select("country_code").in("id", personIds);
+    for (const row of connectedUsers ?? []) {
+      if (!row.country_code) continue;
+      countryCounts.set(row.country_code, (countryCounts.get(row.country_code) ?? 0) + 1);
+    }
+  }
+  const countryBreakdown = [...countryCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([code, count]) => ({ code, count, name: COUNTRY_NAMES.get(code) ?? code }));
+  const visibleCountries = countryBreakdown.slice(0, COUNTRY_DISPLAY_CAP);
+
+  return {
+    ownerName,
+    connectionCount: personIds.length,
+    growingSince: earliestConnectedAt
+      ? new Date(earliestConnectedAt).toLocaleDateString("en", { month: "long", day: "numeric", year: "numeric" })
+      : null,
+    totalCountryCount: countryBreakdown.length,
+    visibleCountries,
+    hiddenCountryCount: countryBreakdown.length - visibleCountries.length,
+  };
 }

@@ -2,9 +2,10 @@ export const dynamic = "force-dynamic";
 
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getConnectionsSummary } from "@/lib/connections";
+import { getGrowingTreeExtra } from "@/lib/connections";
 import AppShell from "@/components/AppShell";
 import GrowingTree from "@/components/GrowingTree";
+import GrowingTreeStats from "@/components/GrowingTreeStats";
 import Avatar from "@/components/Avatar";
 
 type BookRow = {
@@ -46,8 +47,8 @@ export default async function ProfilePage({ params }: { params: { userId: string
 
   const name = profile.nickname ?? profile.display_name;
 
-  const [{ personIds }, { data: userBooks }, { data: earnedBadges }, { data: pins }] = await Promise.all([
-    getConnectionsSummary(supabase, params.userId),
+  const [growingTreeExtra, { data: userBooks }, { data: earnedBadges }, { data: pins }] = await Promise.all([
+    getGrowingTreeExtra(supabase, params.userId),
     supabase
       .from("user_books")
       .select("book_id, badges_earned, books(title, slug)")
@@ -62,7 +63,7 @@ export default async function ProfilePage({ params }: { params: { userId: string
       .eq("user_id", params.userId)
       .order("display_order", { ascending: true }),
   ]);
-  const connectionCount = personIds.length;
+  const connectionCount = growingTreeExtra.connectionCount;
 
   // Joined live against reflections at render time, never denormalized:
   // reflections' own RLS ("is_hidden = false or auth.uid() = user_id",
@@ -123,13 +124,16 @@ export default async function ProfilePage({ params }: { params: { userId: string
         </div>
 
         <GrowingTree seed={profile.id} connectionCount={connectionCount} className="w-full max-w-sm mx-auto mb-4" />
-        <p className="text-center text-sm text-gray-400 italic mb-10">
-          {connectionCount === 0
-            ? `No one's rooting for ${name}'s growth yet.`
-            : connectionCount === 1
-            ? `1 person rooting for ${name}'s growth.`
-            : `${connectionCount} people rooting for ${name}'s growth.`}
-        </p>
+        <div className="mb-10">
+          <p className="text-center text-sm text-gray-400 italic mb-2">
+            {connectionCount === 0
+              ? `No one's rooting for ${name}'s growth yet.`
+              : connectionCount === 1
+              ? `1 person rooting for ${name}'s growth.`
+              : `${connectionCount} people rooting for ${name}'s growth.`}
+          </p>
+          <GrowingTreeStats extra={growingTreeExtra} />
+        </div>
 
         {pinned.length > 0 && (
           <div className="space-y-3 mb-10">

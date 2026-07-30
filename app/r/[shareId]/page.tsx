@@ -4,15 +4,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getConnectionsSummary } from "@/lib/connections";
-import { COUNTRIES } from "@/lib/countries";
-import FlagImg from "@/components/FlagImg";
-
-const COUNTRY_NAMES = new Map(COUNTRIES.map((c) => [c.code, c.name]));
-// Same overflow cap as app/growing/page.tsx's own country grid, reused
-// here rather than reinvented so the two pages agree on when "+N more
-// countries" kicks in.
-const COUNTRY_DISPLAY_CAP = 9;
+import { getGrowingTreeExtra } from "@/lib/connections";
+import GrowingTreeStats from "@/components/GrowingTreeStats";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stillgrowing.co";
 
@@ -55,57 +48,6 @@ async function getReflectionCaption(admin: ReturnType<typeof createAdminClient>,
   const { data: reflection } = await admin.from("reflections").select("text").eq("id", reflectionId).maybeSingle();
   if (!reflection) return null;
   return `“${truncate(reflection.text, 140)}”`;
-}
-
-type GrowingTreeExtra = {
-  ownerName: string;
-  growingSince: string | null;
-  totalCountryCount: number;
-  visibleCountries: { code: string; count: number; name: string }[];
-  hiddenCountryCount: number;
-};
-
-// "Growing since" + the per-country flag breakdown, straight from
-// getConnectionsSummary -- the same query app/growing/page.tsx runs,
-// reused here for a stranger looking at someone else's shared tree
-// instead of the owner's own page. app/growing/page.tsx's "N countries
-// growing with you" reads fine in first person on the owner's own page,
-// but a stranger reading a shared link isn't the "you" being rooted for,
-// so this resolves the owner's name too, to say "rooting for {name}'s
-// growth" instead, matching the third-person framing this page uses
-// throughout.
-async function getGrowingTreeExtra(
-  admin: ReturnType<typeof createAdminClient>,
-  userId: string
-): Promise<GrowingTreeExtra> {
-  const [{ data: owner }, { personIds, earliestConnectedAt }] = await Promise.all([
-    admin.from("users").select("nickname, display_name").eq("id", userId).maybeSingle(),
-    getConnectionsSummary(admin, userId),
-  ]);
-  const ownerName = owner?.nickname ?? owner?.display_name ?? "this reader";
-
-  const countryCounts = new Map<string, number>();
-  if (personIds.length > 0) {
-    const { data: connectedUsers } = await admin.from("users").select("country_code").in("id", personIds);
-    for (const row of connectedUsers ?? []) {
-      if (!row.country_code) continue;
-      countryCounts.set(row.country_code, (countryCounts.get(row.country_code) ?? 0) + 1);
-    }
-  }
-  const countryBreakdown = [...countryCounts.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .map(([code, count]) => ({ code, count, name: COUNTRY_NAMES.get(code) ?? code }));
-  const visibleCountries = countryBreakdown.slice(0, COUNTRY_DISPLAY_CAP);
-
-  return {
-    ownerName,
-    growingSince: earliestConnectedAt
-      ? new Date(earliestConnectedAt).toLocaleDateString("en", { month: "long", day: "numeric", year: "numeric" })
-      : null,
-    totalCountryCount: countryBreakdown.length,
-    visibleCountries,
-    hiddenCountryCount: countryBreakdown.length - visibleCountries.length,
-  };
 }
 
 // Extra on-page context beneath the hero card, on top of whatever's
@@ -218,36 +160,7 @@ export default async function ShareLandingPage({ params }: { params: { shareId: 
         // can render "between" pixels already flattened into one PNG.
         <div className="rounded-2xl border border-pink-pale shadow-xl bg-cream overflow-hidden mb-16">
           <img src={imageUrl} alt="Shared from Still Growing" className="w-full block" />
-          {growingTreeExtra && (growingTreeExtra.growingSince || growingTreeExtra.totalCountryCount > 0 || growingTreeExtra.visibleCountries.length > 0) && (
-            <div className="px-8 pt-3 pb-7">
-              {growingTreeExtra && (growingTreeExtra.growingSince || growingTreeExtra.totalCountryCount > 0) && (
-                <div className="flex flex-wrap justify-center gap-x-6 gap-y-1 text-xs text-gray-400">
-                  {growingTreeExtra.growingSince && <span>Growing since {growingTreeExtra.growingSince}</span>}
-                  {growingTreeExtra.totalCountryCount > 0 && (
-                    <span>
-                      {growingTreeExtra.totalCountryCount}{" "}
-                      {growingTreeExtra.totalCountryCount === 1 ? "country" : "countries"} rooting for{" "}
-                      {growingTreeExtra.ownerName}&apos;s growth
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {growingTreeExtra && growingTreeExtra.visibleCountries.length > 0 && (
-                <div className="grid grid-cols-3 gap-x-3 gap-y-2 justify-items-center mt-4 max-w-sm mx-auto text-sm text-ink">
-                  {growingTreeExtra.visibleCountries.map(({ code, count, name }) => (
-                    <span key={code} className="flex items-center gap-1.5">
-                      <FlagImg code={code} className="rounded-sm" />
-                      {name} · {count}
-                    </span>
-                  ))}
-                  {growingTreeExtra.hiddenCountryCount > 0 && (
-                    <span className="col-span-3 text-gray-400">+{growingTreeExtra.hiddenCountryCount} more countries</span>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+          {growingTreeExtra && <GrowingTreeStats extra={growingTreeExtra} className="px-8 pt-3 pb-7" />}
         </div>
       ) : (
         <>
