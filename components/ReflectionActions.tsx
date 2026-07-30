@@ -46,6 +46,16 @@ function UnlockIcon() {
   );
 }
 
+// Filled when pinned, outline otherwise -- same convention as Lock/Unlock above.
+function PinIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2a5 5 0 00-5 5c0 3 2 4.5 3 7l-4 2v1h12v-1l-4-2c1-2.5 3-4 3-7a5 5 0 00-5-5z" />
+      <line x1="12" y1="17" x2="12" y2="22" />
+    </svg>
+  );
+}
+
 // Shared 44x44 tap target wrapping a visually smaller icon, so mobile
 // touch accuracy doesn't depend on the icon's own (much smaller) bounds.
 function IconButton({
@@ -89,10 +99,15 @@ type Props = {
   heartsCount?: number;
   isHidden: boolean;
   flagReason: string | null;
+  // Undefined hides the pin control entirely: pinning is an author-only,
+  // profile-page-adjacent feature, and not every ReflectionActions call
+  // site (yet) has pin state loaded to pass in.
+  isPinned?: boolean;
   onUpdated: (updated: UpdatedReflection) => void;
   onDeleted: () => void;
   onVisibilityChanged: (isHidden: boolean) => void;
   onSpamDetected?: () => void;
+  onPinChanged?: (isPinned: boolean) => void;
   // Applied to the idle icon row's root only (e.g. "ml-auto" to push it to
   // the right edge of a metadata row it shares space with). The editing/
   // confirming modes below always take the full row width regardless.
@@ -107,10 +122,12 @@ export default function ReflectionActions({
   heartsCount = 0,
   isHidden,
   flagReason,
+  isPinned,
   onUpdated,
   onDeleted,
   onVisibilityChanged,
   onSpamDetected,
+  onPinChanged,
   className,
 }: Props) {
   const [mode, setMode] = useState<"idle" | "editing" | "confirmingEditReset" | "confirmingDelete">("idle");
@@ -123,6 +140,33 @@ export default function ReflectionActions({
   // Spam/reported are moderation states, not the author's own choice, and
   // stay admin-only from /admin/circle. No visibility toggle for those.
   const canToggleVisibility = flagReason !== "spam" && flagReason !== "reported";
+  // Pinning additionally requires the reflection to be currently shared
+  // (is_hidden = false) -- matches the DB's own "users pin own shared
+  // reflections" RLS check (0038_profile_pins.sql), so a rejected request
+  // here would just be this same rule enforced one layer up.
+  const canPin = canToggleVisibility && !isHidden;
+
+  async function togglePin() {
+    if (!onPinChanged) return;
+    setBusy(true);
+    setError(null);
+
+    const res = isPinned
+      ? await fetch(`/api/profile-pins/${reflectionId}`, { method: "DELETE" })
+      : await fetch("/api/profile-pins", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reflection_id: reflectionId }),
+        });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+
+    if (!res.ok) {
+      setError(data.error ?? "Something went wrong. Try again.");
+      return;
+    }
+    onPinChanged(!isPinned);
+  }
 
   async function toggleVisibility(shareToCircle: boolean) {
     setBusy(true);
@@ -333,6 +377,22 @@ export default function ReflectionActions({
             ariaLabel={isHidden ? "Share to Circle" : "Make private"}
           >
             {isHidden ? <UnlockIcon /> : <LockIcon />}
+          </IconButton>
+        )}
+        {onPinChanged && (canPin || isPinned) && (
+          <IconButton
+            onClick={togglePin}
+            disabled={busy || !canPin}
+            ariaLabel={isPinned ? "Unpin from profile" : "Pin to profile"}
+            title={
+              isPinned
+                ? "Unpin from profile"
+                : canPin
+                ? "Pin to profile"
+                : "Share this to the Circle to pin it"
+            }
+          >
+            <PinIcon filled={!!isPinned} />
           </IconButton>
         )}
       </div>

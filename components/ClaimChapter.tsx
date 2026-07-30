@@ -17,6 +17,7 @@ type PastReflection = {
   edit_count: number;
   hearts_count: number;
   created_at: string;
+  is_pinned: boolean;
 };
 
 type Props = {
@@ -187,6 +188,7 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
         edit_count: 0,
         hearts_count: 0,
         created_at: new Date().toISOString(),
+        is_pinned: false,
       },
       ...prev,
     ]);
@@ -245,6 +247,7 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
         edit_count: 0,
         hearts_count: 0,
         created_at: new Date().toISOString(),
+        is_pinned: false,
       },
       ...prev,
     ]);
@@ -563,6 +566,12 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
                         heartsCount={r.hearts_count}
                         isHidden={r.is_hidden}
                         flagReason={r.flag_reason}
+                        isPinned={r.is_pinned}
+                        onPinChanged={(isPinnedNow) =>
+                          setReflections((prev) =>
+                            prev.map((item) => (item.id === r.id ? { ...item, is_pinned: isPinnedNow } : item))
+                          )
+                        }
                         className="ml-auto"
                         onUpdated={(updated) =>
                           setReflections((prev) =>

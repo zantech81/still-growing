@@ -61,7 +61,7 @@ export default async function ChapterPage({
     .eq("book_id", book.id)
     .maybeSingle();
 
-  const [{ data: existingBadge }, { data: pastReflections }] = await Promise.all([
+  const [{ data: existingBadge }, { data: rawPastReflections }, { data: myPins }] = await Promise.all([
     supabase
       .from("user_badges")
       .select("id")
@@ -74,7 +74,11 @@ export default async function ChapterPage({
       .eq("chapter_id", chapter.id)
       .eq("user_id", user!.id)
       .order("created_at", { ascending: false }),
+    supabase.from("profile_pins").select("reflection_id").eq("user_id", user!.id),
   ]);
+
+  const pinnedIds = new Set((myPins ?? []).map((p) => p.reflection_id as string));
+  const pastReflections = (rawPastReflections ?? []).map((r) => ({ ...r, is_pinned: pinnedIds.has(r.id) }));
 
   const currentChapter = userBook?.current_chapter ?? 1;
   const isLocked = chapterNumber > currentChapter;
@@ -89,7 +93,7 @@ export default async function ChapterPage({
       chapter={{ ...chapterFields, badge, hasUnlockCode }}
       alreadyClaimed={!!existingBadge}
       isLocked={isLocked}
-      pastReflections={pastReflections ?? []}
+      pastReflections={pastReflections}
       userId={user!.id}
       maxLength={maxLength}
     />

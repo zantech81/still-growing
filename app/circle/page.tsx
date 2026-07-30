@@ -145,8 +145,9 @@ export default async function CirclePage({
   const reflectionIds = reflections.map((r) => r.id);
   let myReactionIds: string[] = [];
   let myReportedIds: string[] = [];
+  let myPinnedIds: string[] = [];
   if (reflectionIds.length > 0) {
-    const [{ data: myReactions }, { data: myReports }] = await Promise.all([
+    const [{ data: myReactions }, { data: myReports }, { data: myPins }] = await Promise.all([
       supabase
         .from("reactions")
         .select("reflection_id")
@@ -157,9 +158,15 @@ export default async function CirclePage({
         .select("reflection_id")
         .eq("reporter_id", user.id)
         .in("reflection_id", reflectionIds),
+      supabase
+        .from("profile_pins")
+        .select("reflection_id")
+        .eq("user_id", user.id)
+        .in("reflection_id", reflectionIds),
     ]);
     myReactionIds = (myReactions ?? []).map((r) => r.reflection_id as string);
     myReportedIds = (myReports ?? []).map((r) => r.reflection_id as string);
+    myPinnedIds = (myPins ?? []).map((p) => p.reflection_id as string);
   }
 
   // Person-level, not per-reflection (see supabase/migrations/0029_connections.sql),
@@ -183,6 +190,7 @@ export default async function CirclePage({
           myReactionIds={myReactionIds}
           myReportedIds={myReportedIds}
           myRootedForIds={myRootedForIds}
+          myPinnedIds={myPinnedIds}
           chapters={chapters}
           currentUserId={user.id}
           maxLength={maxLength}

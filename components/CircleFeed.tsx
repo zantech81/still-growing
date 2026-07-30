@@ -112,6 +112,10 @@ type Props = {
   // relationship (see supabase/migrations/0029_connections.sql), not
   // per-reflection, so the same set applies to every card by that author.
   myRootedForIds: string[];
+  // Reflection ids the viewer has pinned to their own profile (see
+  // supabase/migrations/0038_profile_pins.sql) -- only ever relevant for
+  // the viewer's own reflections, same scoping as the pin button itself.
+  myPinnedIds: string[];
   chapters: ChapterRow[];
   currentUserId: string;
   maxLength: number;
@@ -135,6 +139,7 @@ export default function CircleFeed({
   myReactionIds,
   myReportedIds,
   myRootedForIds,
+  myPinnedIds,
   chapters,
   currentUserId,
   maxLength,
@@ -146,6 +151,7 @@ export default function CircleFeed({
   const [reacted, setReacted] = useState<Set<string>>(new Set(myReactionIds));
   const [reported, setReported] = useState<Set<string>>(new Set(myReportedIds));
   const [rootedFor, setRootedFor] = useState<Set<string>>(new Set(myRootedForIds));
+  const [pinned, setPinned] = useState<Set<string>>(new Set(myPinnedIds));
   const [heartCounts, setHeartCounts] = useState<Record<string, number>>(
     Object.fromEntries(initialReflections.map((r) => [r.id, r.hearts_count]))
   );
@@ -423,6 +429,15 @@ export default function CircleFeed({
                       // reachable here is "Make private" (isHidden=false).
                       isHidden={false}
                       flagReason={null}
+                      isPinned={pinned.has(r.id)}
+                      onPinChanged={(isPinnedNow) => {
+                        setPinned((prev) => {
+                          const next = new Set(prev);
+                          if (isPinnedNow) next.add(r.id);
+                          else next.delete(r.id);
+                          return next;
+                        });
+                      }}
                       onUpdated={(updated) => {
                         // An edit that gets newly flagged as spam becomes hidden,
                         // so it drops out of the public feed entirely.

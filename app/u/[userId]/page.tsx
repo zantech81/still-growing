@@ -46,7 +46,7 @@ export default async function ProfilePage({ params }: { params: { userId: string
 
   const name = profile.nickname ?? profile.display_name;
 
-  const [{ personIds }, { data: userBooks }, { data: earnedBadges }] = await Promise.all([
+  const [{ personIds }, { data: userBooks }, { data: earnedBadges }, { data: pins }] = await Promise.all([
     getConnectionsSummary(supabase, params.userId),
     supabase
       .from("user_books")
@@ -56,8 +56,33 @@ export default async function ProfilePage({ params }: { params: { userId: string
       .from("user_badges")
       .select("book_id, badges(name, badge_image_url)")
       .eq("user_id", params.userId),
+    supabase
+      .from("profile_pins")
+      .select("reflection_id")
+      .eq("user_id", params.userId)
+      .order("display_order", { ascending: true }),
   ]);
   const connectionCount = personIds.length;
+
+  // Joined live against reflections at render time, never denormalized:
+  // reflections' own RLS ("is_hidden = false or auth.uid() = user_id",
+  // see 0002_rls.sql) still applies here, so even if a stale pin row
+  // somehow survived whatever should have removed it (see the
+  // reflections_unpin_on_hide trigger, 0038_profile_pins.sql), a hidden
+  // reflection's text still can't reach a stranger viewing this page --
+  // a second, independent enforcement layer under the trigger.
+  const pinnedIds = (pins ?? []).map((p) => p.reflection_id as string);
+  const { data: pinnedReflections } =
+    pinnedIds.length > 0
+      ? await supabase
+          .from("reflections")
+          .select("id, text, chapter_number")
+          .in("id", pinnedIds)
+      : { data: [] as { id: string; text: string; chapter_number: number }[] };
+  const reflectionsById = new Map((pinnedReflections ?? []).map((r) => [r.id, r]));
+  // Re-ordered to match pinnedIds (the caller's own display_order), since
+  // .in() doesn't guarantee result order matches the input array.
+  const pinned = pinnedIds.map((id) => reflectionsById.get(id)).filter((r): r is NonNullable<typeof r> => !!r);
 
   // Grouped by book_id from the start, per the multi-book
   // future-proofing pattern already established elsewhere (see
@@ -106,6 +131,18 @@ export default async function ProfilePage({ params }: { params: { userId: string
             : `${connectionCount} people rooting for ${name}'s growth.`}
         </p>
 
+        {pinned.length > 0 && (
+          <div className="space-y-3 mb-10">
+            <h2 className="text-xs uppercase tracking-widest text-gray-400">Pinned reflections</h2>
+            {pinned.map((r) => (
+              <div key={r.id} className="bg-white border border-pink-pale rounded-xl2 px-5 py-4">
+                <p className="text-sm text-ink leading-relaxed italic">&ldquo;{r.text}&rdquo;</p>
+                <p className="text-xs text-gray-300 mt-2">Chapter {r.chapter_number}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="space-y-4">
           <h2 className="text-xs uppercase tracking-widest text-gray-400">Books</h2>
           {books.length === 0 ? (
@@ -114,7 +151,9 @@ export default async function ProfilePage({ params }: { params: { userId: string
             books.map((b) => (
               <div key={b.bookId} className="bg-white border border-pink-pale rounded-xl2 p-5">
                 <h3 className="font-display text-plum text-lg mb-1">{b.title}</h3>
-                <p className="text-sm text-gray-400 mb-4">{b.badgesEarnedCount} badges earned</p>
+                <p className="text-sm text-gray-400 mb-4">
+                  {b.badgesEarnedCount} {b.badgesEarnedCount === 1 ? "badge" : "badges"} earned
+                </p>
                 {b.badges.length > 0 && (
                   <div className="flex flex-wrap gap-4">
                     {b.badges.map((badge, i) => (
