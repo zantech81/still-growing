@@ -13,7 +13,7 @@ export default async function AccountPage() {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("display_name, country_code, nickname, birth_month, birth_day")
+    .select("display_name, country_code, nickname, birth_month, birth_day, avatar_key, avatar_color")
     .eq("id", user.id)
     .single();
 
@@ -27,6 +27,8 @@ export default async function AccountPage() {
           nickname={profile?.nickname ?? null}
           birthMonth={profile?.birth_month ?? null}
           birthDay={profile?.birth_day ?? null}
+          avatarKey={profile?.avatar_key ?? null}
+          avatarColor={profile?.avatar_color ?? "#E8A0B8"}
         />
         <div className="mt-12 pt-8 border-t border-pink-pale">
           <SignOutButton />

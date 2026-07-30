@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/countries";
+import { AVATARS } from "@/lib/avatars";
 import FlagImg from "@/components/FlagImg";
+import Avatar from "@/components/Avatar";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -20,11 +22,22 @@ type Props = {
   nickname: string | null;
   birthMonth: number | null;
   birthDay: number | null;
+  avatarKey: string | null;
+  avatarColor: string;
 };
 
-export default function AccountForm({ displayName, countryCode, nickname, birthMonth, birthDay }: Props) {
+export default function AccountForm({
+  displayName,
+  countryCode,
+  nickname,
+  birthMonth,
+  birthDay,
+  avatarKey,
+  avatarColor,
+}: Props) {
   const [nicknameVal, setNicknameVal] = useState(nickname ?? "");
   const [country, setCountry] = useState(countryCode ?? "");
+  const [avatar, setAvatar] = useState(avatarKey ?? "");
   const [birthMonthVal, setBirthMonthVal] = useState(birthMonth ? String(birthMonth) : "");
   const [birthDayVal, setBirthDayVal] = useState(birthDay ? String(birthDay) : "");
   const [nicknameError, setNicknameError] = useState("");
@@ -78,6 +91,7 @@ export default function AccountForm({ displayName, countryCode, nickname, birthM
       country_code: country || null,
       birth_month: birthMonthVal ? parseInt(birthMonthVal, 10) : null,
       birth_day: birthDayVal ? parseInt(birthDayVal, 10) : null,
+      avatar_key: avatar || null,
     };
 
     const { error } = await supabase
@@ -105,6 +119,49 @@ export default function AccountForm({ displayName, countryCode, nickname, birthM
       <div>
         <p className="text-xs uppercase tracking-widest text-gray-400 mb-1">Name</p>
         <p className="text-lg">{displayName}</p>
+      </div>
+
+      {/* Avatar */}
+      <div>
+        <p className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+          Avatar{" "}
+          <span className="normal-case tracking-normal text-gray-300">
+            (shown on your profile and in the Circle)
+          </span>
+        </p>
+        <div className="flex items-center gap-4 mb-3">
+          <Avatar
+            avatarKey={avatar || null}
+            countryCode={country || null}
+            avatarColor={avatarColor}
+            name={nicknameVal || displayName}
+            size={48}
+          />
+          <p className="text-xs text-gray-400">
+            {avatar
+              ? "Pick a different one below, or clear it to fall back to your flag."
+              : country
+              ? "No avatar picked -- your flag is shown instead."
+              : "No avatar or country set -- your initial is shown instead."}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {AVATARS.map((a) => (
+            <button
+              key={a.key}
+              type="button"
+              onClick={() => setAvatar(avatar === a.key ? "" : a.key)}
+              aria-label={a.label}
+              aria-pressed={avatar === a.key}
+              className={`w-11 h-11 rounded-full flex items-center justify-center text-lg transition-shadow ${
+                avatar === a.key ? "ring-2 ring-offset-2 ring-pink-deep" : ""
+              }`}
+              style={{ backgroundColor: a.color }}
+            >
+              {a.emoji}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Nickname */}
