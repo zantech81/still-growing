@@ -376,7 +376,6 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
                   setError(null);
                 }}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm uppercase tracking-widest focus:outline-none focus:border-pink-dusty transition-colors bg-white"
-                placeholder="Password"
                 spellCheck={false}
               />
             </div>
