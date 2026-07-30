@@ -51,15 +51,6 @@ async function getBadgeCaption(admin: ReturnType<typeof createAdminClient>, badg
   return `Chapter ${chapter.number}: ${chapter.title}`;
 }
 
-async function getProgressCaption(admin: ReturnType<typeof createAdminClient>, share: Share): Promise<string | null> {
-  const [{ data: userBook }, { count: totalChapters }] = await Promise.all([
-    admin.from("user_books").select("badges_earned").eq("user_id", share.user_id).eq("book_id", share.book_id).maybeSingle(),
-    admin.from("chapters").select("id", { count: "exact", head: true }).eq("book_id", share.book_id),
-  ]);
-  if (!totalChapters) return null;
-  return `${userBook?.badges_earned ?? 0} of ${totalChapters} badges earned`;
-}
-
 async function getReflectionCaption(admin: ReturnType<typeof createAdminClient>, reflectionId: string): Promise<string | null> {
   const { data: reflection } = await admin.from("reflections").select("text").eq("id", reflectionId).maybeSingle();
   if (!reflection) return null;
@@ -74,17 +65,15 @@ type GrowingTreeExtra = {
   hiddenCountryCount: number;
 };
 
-// "Growing since" + the per-country flag breakdown, straight from the
-// same getConnectionsSummary this share type's OG headline count already
-// uses (see getGrowingTreeCaption above) -- not rebuilt, just the same
-// query app/growing/page.tsx runs, reused here for a stranger looking at
-// someone else's shared tree instead of the owner's own page. Also
-// resolves the owner's name again (a second, separate one-row lookup
-// from getGrowingTreeCaption's own): app/growing/page.tsx's "N countries
+// "Growing since" + the per-country flag breakdown, straight from
+// getConnectionsSummary -- the same query app/growing/page.tsx runs,
+// reused here for a stranger looking at someone else's shared tree
+// instead of the owner's own page. app/growing/page.tsx's "N countries
 // growing with you" reads fine in first person on the owner's own page,
 // but a stranger reading a shared link isn't the "you" being rooted for,
-// so this needs the owner's name instead, matching the third-person
-// framing the rest of this page already uses.
+// so this resolves the owner's name too, to say "rooting for {name}'s
+// growth" instead, matching the third-person framing this page uses
+// throughout.
 async function getGrowingTreeExtra(
   admin: ReturnType<typeof createAdminClient>,
   userId: string
@@ -120,19 +109,17 @@ async function getGrowingTreeExtra(
 }
 
 // Extra on-page context beneath the hero card, on top of whatever's
-// already baked into the OG image itself -- one per share type, since
-// each type's meaningful context lives in a different place (a badge's
-// chapter, a reflection's own text, a book's progress count). growing_tree
-// has no caption of its own: "N people rooting for {name}'s growth" is
-// already the OG image's own headline text (growingTreeCardTree), and
-// getGrowingTreeExtra below adds genuinely new context (growing-since
-// date, country breakdown) instead of repeating it.
+// already baked into the OG image itself. badge and reflection each add
+// something the image doesn't already say (which chapter, the reflection's
+// own text). progress and growing_tree get no caption here: both would
+// just repeat their OG image's own headline text verbatim ("X of Y badges
+// earned" / "N people rooting for {name}'s growth") -- progress has no
+// further context beyond that to add, and growing_tree's genuinely new
+// context (growing-since date, country breakdown) is handled separately
+// by getGrowingTreeExtra below.
 async function getShareCaption(admin: ReturnType<typeof createAdminClient>, share: Share): Promise<string | null> {
   if (share.type === "badge") {
     return share.reference_id ? getBadgeCaption(admin, share.reference_id) : null;
-  }
-  if (share.type === "progress") {
-    return getProgressCaption(admin, share);
   }
   if (share.type === "reflection") {
     return share.reference_id ? getReflectionCaption(admin, share.reference_id) : null;
