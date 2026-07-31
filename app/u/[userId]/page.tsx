@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -70,16 +70,24 @@ function one<T>(value: T | T[] | null): T | null {
 }
 
 export default async function ProfilePage({ params }: { params: { userId: string } }) {
+  // Deliberately public: no auth check/redirect here, same as
+  // app/r/[shareId]/page.tsx. A signed-out visitor (or a scraper with no
+  // session at all) queries through as the anon role -- every table this
+  // page reads from has RLS already scoped correctly for that
+  // (public_profiles, user_books/user_badges/profile_pins' public select
+  // policies, reflections' is_hidden-or-own-row policy) plus the matching
+  // anon grants added in 0039_public_profile_anon_grants.sql. A signed-in
+  // viewer still gets their own session's client here, used only to
+  // determine isOwnProfile below.
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect(`/login?next=/u/${params.userId}`);
 
-  // public_profiles, not users directly: this is a VIEWED user, not the
-  // caller, and public.users' own RLS is scoped to "own row or admin"
-  // (see 0033_users_rls_column_scoping.sql). This view has no row
-  // restriction of its own, only a safe column subset.
+  // public_profiles, not users directly: this is a VIEWED user, not
+  // (necessarily) the caller, and public.users' own RLS is scoped to
+  // "own row or admin" (see 0033_users_rls_column_scoping.sql). This
+  // view has no row restriction of its own, only a safe column subset.
   const { data: profile } = await supabase
     .from("public_profiles")
     .select("id, nickname, display_name, avatar_key, avatar_color, country_code")
@@ -89,7 +97,7 @@ export default async function ProfilePage({ params }: { params: { userId: string
   if (!profile) notFound();
 
   const name = profile.nickname ?? profile.display_name;
-  const isOwnProfile = user.id === params.userId;
+  const isOwnProfile = user?.id === params.userId;
 
   const [growingTreeExtra, { data: userBooks }, { data: earnedBadges }, { data: pins }] = await Promise.all([
     getGrowingTreeExtra(supabase, params.userId),

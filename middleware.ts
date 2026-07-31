@@ -44,8 +44,14 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/growing") ||
     request.nextUrl.pathname.startsWith("/journey") ||
     request.nextUrl.pathname.startsWith("/account") ||
-    request.nextUrl.pathname.startsWith("/admin") ||
-    request.nextUrl.pathname.startsWith("/u/");
+    request.nextUrl.pathname.startsWith("/admin");
+  // /u/[userId] is deliberately NOT in this list: it's a public profile
+  // page, same as /r/[shareId] (which was never in this list either) --
+  // a stranger clicking a shared link or a Circle post's author name
+  // should see it without signing in first. The page itself scopes what
+  // an anonymous reader can see via RLS (public_profiles, the public
+  // user_books/user_badges/profile_pins policies, reflections'
+  // is_hidden-or-own-row policy), not this route gate.
 
   if (!user && isProtectedRoute) {
     const redirectUrl = new URL("/login", request.url);
