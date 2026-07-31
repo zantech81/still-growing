@@ -41,7 +41,7 @@ function LoginForm() {
   return (
     <main className="max-w-sm mx-auto px-6 py-24 text-center">
       <h1 className="text-3xl mb-2">Begin</h1>
-      <p className="text-gray-500 mb-10">Free to join. No purchase check, just you.</p>
+      <p className="text-gray-500 mb-10">Free to join. No forms, no waiting. Just you.</p>
 
       <div className="space-y-3 mb-8">
         <button
