@@ -1,4 +1,5 @@
 import { generateTreeGeometry, hashSeed, VIEWBOX, LEAF_DISPLAY_CAP, TRUNK_BASE_X, TRUNK_BASE_Y } from "@/lib/growingTree";
+import { AVATAR_MAP } from "@/lib/avatars";
 
 // Satori/ImageResponse JSX for the four share-image formats. Kept
 // separate from the route handlers so both the public share route
@@ -342,6 +343,92 @@ export function reflectionCardTree({
   );
 }
 
+// Same three-tier fallback as components/Avatar.tsx (avatar_key -> country
+// flag -> initials), reimplemented here rather than imported: Avatar.tsx
+// renders Tailwind classNames, which Satori can't resolve (it only
+// understands inline styles, same reason every other card in this file
+// hand-writes style objects instead of using the app's own Tailwind
+// components). The underlying data -- AVATAR_MAP, the flagcdn URL pattern
+// -- is still reused, only the JSX/rendering approach differs.
+function OgAvatar({
+  avatarKey,
+  countryCode,
+  avatarColor,
+  name,
+  size,
+}: {
+  avatarKey: string | null;
+  countryCode: string | null;
+  avatarColor: string;
+  name: string;
+  size: number;
+}) {
+  const avatar = avatarKey ? AVATAR_MAP.get(avatarKey) : null;
+
+  if (avatar) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          width: size,
+          height: size,
+          borderRadius: 999,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: avatar.color,
+          fontSize: size * 0.55,
+        }}
+      >
+        {avatar.emoji}
+      </div>
+    );
+  }
+
+  if (countryCode) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          width: size,
+          height: size,
+          borderRadius: 999,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#F3F3F3",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`https://flagcdn.com/48x36/${countryCode.toLowerCase()}.png`}
+          width={Math.round(size * 0.5)}
+          height={Math.round(size * 0.375)}
+        />
+      </div>
+    );
+  }
+
+  const initial = (name[0] ?? "?").toUpperCase();
+  return (
+    <div
+      style={{
+        display: "flex",
+        width: size,
+        height: size,
+        borderRadius: 999,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: avatarColor,
+        color: "#ffffff",
+        fontFamily: "Nunito",
+        fontWeight: 700,
+        fontSize: size * 0.44,
+      }}
+    >
+      {initial}
+    </div>
+  );
+}
+
 const TREE_LEAF_COLORS = [COLORS.pinkDusty, COLORS.gold, COLORS.greenSoft, COLORS.pinkPale];
 // Matches components/GrowingTree.tsx's GRASS_GREEN: deliberately not
 // COLORS.greenSoft (that pale mint is for leaves), a saturated fresh-
@@ -460,6 +547,130 @@ export function growingTreeCardTree({
               />
             ))}
       </svg>
+
+      <Branding shareUrl={shareUrl} />
+    </div>
+  );
+}
+
+// The profile page's own share card (app/api/og/profile/[userId]/route.ts).
+// Unlike the four types above, this doesn't correspond to a shares-table
+// row or a point-in-time snapshot -- /u/[userId] is already a stable,
+// permanent URL that always shows current data, so this image is
+// generated fresh on every fetch from live data, not a moment captured at
+// share-time. Reuses the same tree-drawing primitives as
+// growingTreeCardTree (just at a smaller size) and the OgAvatar fallback
+// chain above, rather than building either from scratch.
+export function profileCardTree({
+  name,
+  avatarKey,
+  countryCode,
+  avatarColor,
+  connectionCount,
+  totalBadges,
+  bookCount,
+  bookTitle,
+  seed,
+  shareUrl,
+}: {
+  name: string;
+  avatarKey: string | null;
+  countryCode: string | null;
+  avatarColor: string;
+  connectionCount: number;
+  totalBadges: number;
+  bookCount: number;
+  bookTitle: string;
+  seed: string;
+  shareUrl: string;
+}) {
+  const geometry = generateTreeGeometry(hashSeed(seed));
+  const overflowing = connectionCount > LEAF_DISPLAY_CAP;
+  const visibleLeafCount = Math.min(connectionCount, LEAF_DISPLAY_CAP);
+  const treeHeight = 250;
+  const treeWidth = Math.round((treeHeight * 400) / 420);
+
+  const badgeSummary =
+    totalBadges === 0
+      ? bookTitle
+      : bookCount > 1
+      ? `${totalBadges} badges across ${bookCount} books`
+      : `${totalBadges} ${totalBadges === 1 ? "badge" : "badges"} earned`;
+
+  return (
+    <div
+      style={{
+        width: WIDTH,
+        height: HEIGHT,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "space-between",
+        backgroundColor: COLORS.cream,
+        padding: "44px 80px 36px",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
+        <OgAvatar avatarKey={avatarKey} countryCode={countryCode} avatarColor={avatarColor} name={name} size={110} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", fontFamily: "Playfair Display", fontWeight: 700, fontSize: 48, color: COLORS.plum }}>
+            {name}
+          </div>
+          <div style={{ display: "flex", fontFamily: "Nunito", fontSize: 24, color: COLORS.pinkDeep }}>
+            {badgeSummary}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+        <svg width={treeWidth} height={treeHeight} viewBox={VIEWBOX}>
+          <ellipse cx={TRUNK_BASE_X} cy={TRUNK_BASE_Y + 3} rx={48} ry={11} fill={GRASS_GREEN} />
+          {geometry.branches.map((b, i) => (
+            <line
+              key={`b${i}`}
+              x1={b.x1}
+              y1={b.y1}
+              x2={b.x2}
+              y2={b.y2}
+              stroke={COLORS.plum}
+              strokeWidth={b.strokeWidth}
+              strokeLinecap="round"
+            />
+          ))}
+          {overflowing
+            ? [
+                ...geometry.canopyFiller.map((p, i) => (
+                  <circle key={`f${i}`} cx={p.x} cy={p.y} r={4 + (i % 3)} fill={TREE_LEAF_COLORS[i % 4]} opacity={0.75} />
+                )),
+                ...geometry.leafTips.map((p, i) => (
+                  <circle
+                    key={`t${i}`}
+                    cx={p.x}
+                    cy={p.y}
+                    r={geometry.leafRadii[i] * 0.8}
+                    fill={TREE_LEAF_COLORS[i % 4]}
+                    opacity={0.8}
+                  />
+                )),
+              ]
+            : Array.from({ length: visibleLeafCount }, (_, i) => (
+                <circle
+                  key={`l${i}`}
+                  cx={geometry.leafTips[i].x}
+                  cy={geometry.leafTips[i].y}
+                  r={geometry.leafRadii[i]}
+                  fill={TREE_LEAF_COLORS[i % 4]}
+                />
+              ))}
+        </svg>
+        <div style={{ display: "flex", fontFamily: "Nunito", fontSize: 22, color: COLORS.ink, textAlign: "center" }}>
+          {connectionCount === 0
+            ? `${name} is just getting started`
+            : connectionCount === 1
+            ? `1 person rooting for ${name}'s growth`
+            : `${connectionCount} people rooting for ${name}'s growth`}
+        </div>
+      </div>
 
       <Branding shareUrl={shareUrl} />
     </div>

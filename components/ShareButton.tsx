@@ -2,15 +2,26 @@
 
 import { useEffect, useRef, useState } from "react";
 
-type ShareKind = "badge" | "progress" | "reflection" | "growing_tree";
+type ShareKind = "badge" | "progress" | "reflection" | "growing_tree" | "profile";
 
 type Props = {
   type: ShareKind;
-  bookId: string;
-  referenceId?: string; // omitted for "progress"
+  bookId?: string; // omitted for "profile" (direct mode, see below)
+  referenceId?: string; // omitted for "progress" and "profile"
   label: string;
   shareTitle: string;
   shareText: string;
+  // Direct-share mode: for content that's already a stable, permanent URL
+  // (the profile page, /u/[userId]) rather than a point-in-time snapshot,
+  // there's no shares-table row to mint and nothing to redirect through --
+  // the real URL and a live-rendered OG image already do the job. Passing
+  // both switches this component into that mode: it skips the POST
+  // /api/shares call and fetches directImageUrl directly instead of
+  // /api/og/{type}/{shareId}. Both accept relative paths (prefixed with
+  // window.location.origin at share time, same as the minted mode already
+  // does for shareUrl) so callers don't need to know the site's origin.
+  directUrl?: string;
+  directImageUrl?: string;
   // Reflection shares specifically require an explicit preview + confirm
   // step before either action fires (see components/CircleFeed.tsx and
   // ClaimChapter.tsx): this is the reader's own personal words going
@@ -147,9 +158,17 @@ function PlatformShareRow({
 type State =
   | { phase: "idle" }
   | { phase: "working" }
-  | { phase: "ready"; shareId: string; shareUrl: string }
-  | { phase: "previewing"; shareId: string; shareUrl: string; objectUrl: string }
+  | { phase: "ready"; shareUrl: string; imageUrl: string }
+  | { phase: "previewing"; shareId: string; shareUrl: string; imageUrl: string; objectUrl: string }
   | { phase: "error"; message: string };
+
+// window.location.origin-prefixes a relative path, same treatment the
+// minted-mode shareUrl (`${window.location.origin}/r/${shareId}`) already
+// got before this was generalized -- direct mode's URLs are relative
+// server-supplied paths for the same reason.
+function toAbsolute(pathOrUrl: string): string {
+  return pathOrUrl.startsWith("http") ? pathOrUrl : `${window.location.origin}${pathOrUrl}`;
+}
 
 export default function ShareButton({
   type,
@@ -158,6 +177,8 @@ export default function ShareButton({
   label,
   shareTitle,
   shareText,
+  directUrl,
+  directImageUrl,
   requireConfirmation = false,
   className,
   autoStart = false,
@@ -199,8 +220,8 @@ export default function ShareButton({
     return data.shareId;
   }
 
-  async function fetchImageBlob(shareId: string): Promise<Blob | null> {
-    const imgRes = await fetch(`/api/og/${type}/${shareId}`);
+  async function fetchImageBlob(imageUrl: string): Promise<Blob | null> {
+    const imgRes = await fetch(imageUrl);
     if (!imgRes.ok) {
       setState({ phase: "error", message: "Couldn't generate the share image. Try again." });
       return null;
@@ -210,20 +231,33 @@ export default function ShareButton({
 
   async function handleInitialClick() {
     setState({ phase: "working" });
-    const shareId = await createShare();
-    if (!shareId) return;
 
-    const shareUrl = `${window.location.origin}/r/${shareId}`;
+    let shareId: string | null = null;
+    let shareUrl: string;
+    let imageUrl: string;
+
+    if (directUrl && directImageUrl) {
+      shareUrl = toAbsolute(directUrl);
+      imageUrl = directImageUrl;
+    } else {
+      shareId = await createShare();
+      if (!shareId) return;
+      shareUrl = `${window.location.origin}/r/${shareId}`;
+      imageUrl = `/api/og/${type}/${shareId}`;
+    }
 
     if (requireConfirmation) {
-      const blob = await fetchImageBlob(shareId);
+      const blob = await fetchImageBlob(imageUrl);
       if (!blob) return;
       const objectUrl = URL.createObjectURL(blob);
-      setState({ phase: "previewing", shareId, shareUrl, objectUrl });
+      // shareId is always set here: requireConfirmation is only ever used
+      // by minted-mode reflection shares (see the Props comment above),
+      // never combined with directUrl/directImageUrl.
+      setState({ phase: "previewing", shareId: shareId!, shareUrl, imageUrl, objectUrl });
       return;
     }
 
-    setState({ phase: "ready", shareId, shareUrl });
+    setState({ phase: "ready", shareUrl, imageUrl });
   }
 
   useEffect(() => {
@@ -256,8 +290,8 @@ export default function ShareButton({
     }
   }
 
-  async function handleDownload(shareId: string, shareUrl: string) {
-    const blob = await fetchImageBlob(shareId);
+  async function handleDownload(imageUrl: string, shareUrl: string) {
+    const blob = await fetchImageBlob(imageUrl);
     if (!blob) return;
     const objectUrl = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -304,7 +338,7 @@ export default function ShareButton({
             Share link
           </button>
           <button
-            onClick={() => handleDownload(state.shareId, state.shareUrl)}
+            onClick={() => handleDownload(state.imageUrl, state.shareUrl)}
             className="text-sm border border-gray-200 hover:border-pink-dusty text-gray-500 hover:text-pink-deep px-4 py-2 rounded-lg transition-colors"
           >
             {DOWNLOAD_LABEL}
@@ -332,7 +366,7 @@ export default function ShareButton({
             Share link
           </button>
           <button
-            onClick={() => handleDownload(state.shareId, state.shareUrl)}
+            onClick={() => handleDownload(state.imageUrl, state.shareUrl)}
             className="text-sm border border-gray-200 hover:border-pink-dusty text-gray-500 hover:text-pink-deep px-4 py-2 rounded-lg transition-colors"
           >
             {DOWNLOAD_LABEL}

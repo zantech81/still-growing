@@ -1,12 +1,55 @@
 export const dynamic = "force-dynamic";
 
 import { notFound, redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getGrowingTreeExtra } from "@/lib/connections";
 import AppShell from "@/components/AppShell";
 import GrowingTree from "@/components/GrowingTree";
 import GrowingTreeStats from "@/components/GrowingTreeStats";
 import Avatar from "@/components/Avatar";
+import ShareButton from "@/components/ShareButton";
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stillgrowing.co";
+
+// Public route, same as app/r/[shareId]/page.tsx: looked up with the
+// admin client since a social platform's scraper (or a signed-out
+// visitor) has no session/cookies to authenticate a request with.
+export async function generateMetadata({
+  params,
+}: {
+  params: { userId: string };
+}): Promise<Metadata> {
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("public_profiles")
+    .select("nickname, display_name")
+    .eq("id", params.userId)
+    .maybeSingle();
+
+  if (!profile) return {};
+
+  const name = profile.nickname ?? profile.display_name ?? "This reader";
+  const title = `${name} on Still Growing`;
+  const description = `See ${name}'s growing tree, badges, and journey on Still Growing.`;
+  const imageUrl = `${siteUrl}/api/og/profile/${params.userId}`;
+  const pageUrl = `${siteUrl}/u/${params.userId}`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: pageUrl,
+      type: "website",
+      siteName: "Still Growing",
+      images: [{ url: imageUrl, width: 1200, height: 630 }],
+    },
+    twitter: { card: "summary_large_image", title, description, images: [imageUrl] },
+  };
+}
 
 type BookRow = {
   book_id: string;
@@ -46,6 +89,7 @@ export default async function ProfilePage({ params }: { params: { userId: string
   if (!profile) notFound();
 
   const name = profile.nickname ?? profile.display_name;
+  const isOwnProfile = user.id === params.userId;
 
   const [growingTreeExtra, { data: userBooks }, { data: earnedBadges }, { data: pins }] = await Promise.all([
     getGrowingTreeExtra(supabase, params.userId),
@@ -122,6 +166,25 @@ export default async function ProfilePage({ params }: { params: { userId: string
           />
           <h1 className="text-2xl">{name}</h1>
         </div>
+
+        {/* Own-profile only (see the isOwnProfile check above): sharing
+            your own achievements is fine, but a button that lets anyone
+            share a link to someone ELSE's profile without their
+            involvement is a different, not-asked-for thing. Placed right
+            here, at the top of the content being shared, rather than
+            tucked back in Account settings. */}
+        {isOwnProfile && (
+          <div className="flex justify-center mb-8">
+            <ShareButton
+              type="profile"
+              directUrl={`/u/${params.userId}`}
+              directImageUrl={`/api/og/profile/${params.userId}`}
+              label="Share my profile"
+              shareTitle={`${name} on Still Growing`}
+              shareText="Check out my growing tree on Still Growing!"
+            />
+          </div>
+        )}
 
         <GrowingTree seed={profile.id} connectionCount={connectionCount} className="w-full max-w-sm mx-auto mb-4" />
         <div className="mb-10">
