@@ -418,7 +418,22 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
             )}
 
             {chapter.mux_playback_id ? (
-              <MuxPlayer playbackId={chapter.mux_playback_id} streamType="on-demand" />
+              // 9:16 portrait, not mux-player's own 16:9 default: reward
+              // videos are shot vertically for a primarily-mobile
+              // audience. Capped at max-w-[360px] (same arbitrary-
+              // aspect-ratio convention already used for portrait media
+              // elsewhere, e.g. LockedBookCard.tsx's book covers) so it
+              // reads as a natural portrait video centered in this
+              // card's max-w-lg column on desktop, rather than stretching
+              // to a huge, oddly cropped rectangle -- while still being
+              // comfortably full-width on mobile, where 360px rarely
+              // binds against the viewport at all.
+              <MuxPlayer
+                playbackId={chapter.mux_playback_id}
+                streamType="on-demand"
+                className="w-full max-w-[360px] mx-auto rounded-xl2 overflow-hidden"
+                style={{ aspectRatio: "9 / 16" }}
+              />
             ) : (
               <p className="text-sm italic text-gray-400">Video coming soon.</p>
             )}

@@ -261,7 +261,11 @@ export default function ChapterForm({ bookId, chapter, badge }: Props) {
         />
       </Field>
 
-      <Field label="Video" error={errors.muxPlaybackId}>
+      <Field
+        label="Video"
+        error={errors.muxPlaybackId}
+        hint="Upload a vertical (9:16) video -- the player is sized for portrait, not landscape."
+      >
         <MuxUploader
           value={form.muxPlaybackId}
           onChange={(id) => set("muxPlaybackId", id)}
