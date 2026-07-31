@@ -167,9 +167,15 @@ export default function AccountForm({
         </div>
         <Link
           href={`/u/${userId}`}
-          className="inline-block text-xs text-pink-deep hover:underline mt-3"
+          className="flex items-center justify-between gap-3 bg-pink-pale hover:bg-pink-dusty transition-colors rounded-xl2 px-5 py-4 mt-4"
         >
-          View my profile →
+          <span>
+            <span className="block font-display text-plum">View My Public Profile</span>
+            <span className="block text-xs text-pink-deep mt-0.5">
+              What others see when they click your name in the Circle
+            </span>
+          </span>
+          <span className="text-pink-deep text-lg" aria-hidden="true">→</span>
         </Link>
       </div>
 
