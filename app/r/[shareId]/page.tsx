@@ -1,11 +1,11 @@
 export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getGrowingTreeExtra } from "@/lib/connections";
 import GrowingTreeStats from "@/components/GrowingTreeStats";
+import BookPromo from "@/components/BookPromo";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stillgrowing.co";
 
@@ -176,52 +176,12 @@ export default async function ShareLandingPage({ params }: { params: { shareId: 
       )}
 
       {/* Book pitch, written for cold traffic with zero prior context.
-          Deliberately compact: a thumbnail (not a full lifestyle photo)
-          and a couple of tight lines, "here's where this came from, want
-          the same thing?" rather than a competing product page. Scoped to
-          this page only, do not port this back to app/page.tsx: the
-          homepage's "Your Journey Continues" copy is for readers who
-          already own the book, this is for strangers who don't yet. */}
-      <div className="max-w-sm mx-auto text-center border-t border-pink-pale pt-10">
-        <div className="flex items-center gap-4 mb-4 text-left">
-          {book?.cover_image_url && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={book.cover_image_url}
-              alt={book?.title ?? "Book cover"}
-              className="w-[50px] h-[66px] object-cover rounded-lg flex-shrink-0 border border-gray-100"
-            />
-          )}
-          <div>
-            <h1 className="font-display text-plum text-lg leading-snug">Life Lessons from a Baby</h1>
-            <p className="text-xs text-gray-400 leading-snug">
-              What the smallest humans teach us about living, loving, and growing up
-            </p>
-          </div>
-        </div>
-
-        <p className="text-xs text-gray-400 mb-6 leading-relaxed">
-          A badge and video for every chapter, and your own space to reflect alongside
-          other readers. Free lifetime access to the Still Growing app, no subscription,
-          ever.
-        </p>
-
-        {salesUrl && (
-          <a
-            href={salesUrl}
-            className="inline-block bg-pink-pale hover:bg-pink-dusty transition-colors text-pink-deep font-display text-base px-8 py-3 rounded-xl2"
-          >
-            Get the Book →
-          </a>
-        )}
-
-        <p className="text-xs text-gray-400 mt-4">
-          Already have your copy?{" "}
-          <Link href="/login" className="text-pink-deep hover:underline">
-            Sign in
-          </Link>
-        </p>
-      </div>
+          Scoped to this page (and app/u/[userId]/page.tsx, under its own
+          logged-out-only condition) only, do not port this back to
+          app/page.tsx: the homepage's "Your Journey Continues" copy is
+          for readers who already own the book, this is for strangers
+          who don't yet. */}
+      <BookPromo coverImageUrl={book?.cover_image_url ?? null} salesUrl={salesUrl} />
     </main>
   );
 }

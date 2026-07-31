@@ -10,6 +10,7 @@ import GrowingTree from "@/components/GrowingTree";
 import GrowingTreeStats from "@/components/GrowingTreeStats";
 import Avatar from "@/components/Avatar";
 import ShareButton from "@/components/ShareButton";
+import BookPromo from "@/components/BookPromo";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stillgrowing.co";
 
@@ -98,6 +99,25 @@ export default async function ProfilePage({ params }: { params: { userId: string
 
   const name = profile.nickname ?? profile.display_name;
   const isOwnProfile = user?.id === params.userId;
+
+  // Book promo: shown only to a signed-out viewer (cold traffic from a
+  // shared link, or an existing reader not signed in on this device) --
+  // never to any logged-in reader, whether they're viewing their own
+  // profile or someone else's, since being logged in already means they
+  // have access to the book. Not tied to the profile owner's own
+  // books/progress at all (this is generic "here's the product" framing,
+  // same as app/r/[shareId]/page.tsx), so skipped entirely -- no query --
+  // whenever there's a session, rather than fetched and simply not
+  // rendered.
+  const { data: promoBook } = user
+    ? { data: null }
+    : await supabase
+        .from("books")
+        .select("cover_image_url, sales_page_url")
+        .eq("status", "published")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
 
   const [growingTreeExtra, { data: userBooks }, { data: earnedBadges }, { data: pins }] = await Promise.all([
     getGrowingTreeExtra(supabase, params.userId),
@@ -254,6 +274,16 @@ export default async function ProfilePage({ params }: { params: { userId: string
             ))
           )}
         </div>
+
+        {/* Signed-out viewers only (see the promoBook fetch above) --
+            below all real profile content, in the same demoted/secondary
+            position app/r/[shareId]/page.tsx already uses (BookPromo's
+            own top border/padding is that section's divider). */}
+        {!user && (
+          <div className="mt-16">
+            <BookPromo coverImageUrl={promoBook?.cover_image_url ?? null} salesUrl={promoBook?.sales_page_url ?? null} />
+          </div>
+        )}
       </main>
     </AppShell>
   );
