@@ -65,6 +65,29 @@ export async function getUnifiedConnectionCount(
   return personIds.length;
 }
 
+// Shared by app/growing/page.tsx and app/u/[userId]/page.tsx (both already
+// call into this module for their tree stats), rather than a separate
+// one-off query on each page. is_hidden = false is the entire "shared vs
+// private" state for a reflection -- there's no separate is_private
+// column, the "Share in the Circle" toggle just flips this same flag (see
+// app/api/reflections/route.ts) -- so this naturally reflects current
+// real state, not a historical total: a reflection that was shared and
+// later made private, deleted, or hidden by moderation stops counting the
+// moment that happens, the same "no longer safely shareable" treatment
+// profile_pins' own unpin-on-hide trigger already applies elsewhere
+// (0038_profile_pins.sql).
+export async function getSharedReflectionCount(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<number> {
+  const { count } = await supabase
+    .from("reflections")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("is_hidden", false);
+  return count ?? 0;
+}
+
 const COUNTRY_NAMES = new Map(COUNTRIES.map((c) => [c.code, c.name]));
 // Same overflow cap as app/growing/page.tsx's own country grid, reused
 // here rather than reinvented so every page that shows this breakdown

@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getConnectionsSummary } from "@/lib/connections";
+import { getConnectionsSummary, getSharedReflectionCount } from "@/lib/connections";
 import { COUNTRIES } from "@/lib/countries";
 import { pickGrowthQuote } from "@/lib/growthQuotes";
 import AppShell from "@/components/AppShell";
@@ -34,7 +34,10 @@ export default async function GrowingPage() {
   // existing leaves never move as connections are added or removed --
   // there's no need to separately track *which* tip belongs to *which*
   // person or when they connected.
-  const { personIds, earliestConnectedAt, bookCounts } = await getConnectionsSummary(supabase, user.id);
+  const [{ personIds, earliestConnectedAt, bookCounts }, sharedReflectionCount] = await Promise.all([
+    getConnectionsSummary(supabase, user.id),
+    getSharedReflectionCount(supabase, user.id),
+  ]);
   const connectionCount = personIds.length;
 
   // Only ever queried/shown once connections actually span more than one
@@ -104,6 +107,12 @@ export default async function GrowingPage() {
     <AppShell>
       <main className="max-w-xl mx-auto px-5 py-8 text-center">
         <h1 className="text-3xl mb-1">Growing</h1>
+        {sharedReflectionCount > 0 && (
+          <p className="text-gray-400 italic text-sm mb-1">
+            You&apos;ve shared {sharedReflectionCount} {sharedReflectionCount === 1 ? "reflection" : "reflections"} in
+            the Circle.
+          </p>
+        )}
         <p className="text-gray-400 italic text-sm mb-8">
           {connectionCount === 0
             ? "No one's rooting for your growth yet."

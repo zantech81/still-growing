@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getGrowingTreeExtra } from "@/lib/connections";
+import { getGrowingTreeExtra, getSharedReflectionCount } from "@/lib/connections";
 import AppShell from "@/components/AppShell";
 import GrowingTree from "@/components/GrowingTree";
 import GrowingTreeStats from "@/components/GrowingTreeStats";
@@ -119,22 +119,24 @@ export default async function ProfilePage({ params }: { params: { userId: string
         .limit(1)
         .maybeSingle();
 
-  const [growingTreeExtra, { data: userBooks }, { data: earnedBadges }, { data: pins }] = await Promise.all([
-    getGrowingTreeExtra(supabase, params.userId),
-    supabase
-      .from("user_books")
-      .select("book_id, badges_earned, books(title, slug)")
-      .eq("user_id", params.userId),
-    supabase
-      .from("user_badges")
-      .select("book_id, badges(name, badge_image_url)")
-      .eq("user_id", params.userId),
-    supabase
-      .from("profile_pins")
-      .select("reflection_id")
-      .eq("user_id", params.userId)
-      .order("display_order", { ascending: true }),
-  ]);
+  const [growingTreeExtra, sharedReflectionCount, { data: userBooks }, { data: earnedBadges }, { data: pins }] =
+    await Promise.all([
+      getGrowingTreeExtra(supabase, params.userId),
+      getSharedReflectionCount(supabase, params.userId),
+      supabase
+        .from("user_books")
+        .select("book_id, badges_earned, books(title, slug)")
+        .eq("user_id", params.userId),
+      supabase
+        .from("user_badges")
+        .select("book_id, badges(name, badge_image_url)")
+        .eq("user_id", params.userId),
+      supabase
+        .from("profile_pins")
+        .select("reflection_id")
+        .eq("user_id", params.userId)
+        .order("display_order", { ascending: true }),
+    ]);
   const connectionCount = growingTreeExtra.connectionCount;
 
   // Joined live against reflections at render time, never denormalized:
@@ -216,6 +218,12 @@ export default async function ProfilePage({ params }: { params: { userId: string
 
         <GrowingTree seed={profile.id} connectionCount={connectionCount} className="w-full max-w-sm mx-auto mb-4" />
         <div className="mb-10">
+          {sharedReflectionCount > 0 && (
+            <p className="text-center text-sm text-gray-400 italic mb-1">
+              {name} has shared {sharedReflectionCount} {sharedReflectionCount === 1 ? "reflection" : "reflections"} in
+              the Circle.
+            </p>
+          )}
           <p className="text-center text-sm text-gray-400 italic mb-2">
             {connectionCount === 0
               ? `No one's rooting for ${name}'s growth yet.`
