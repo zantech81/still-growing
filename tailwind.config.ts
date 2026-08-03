@@ -16,6 +16,13 @@ const config: Config = {
         gold: "#E5B94E",
         plum: "#4A2C3D",
         ink: "#3A3A3A",
+        // Nav-only accent for Circle/Growing (components/AppNav.tsx):
+        // deliberately not pink (would read as a duplicate of the
+        // active-page pink-deep) and not blue-soft/green-soft/gold
+        // (already mean something specific elsewhere -- "coming soon",
+        // "available now", progress). A warm, distinct coral of its own.
+        "coral-soft": "#FBE3DA",
+        coral: "#C1583A",
       },
       fontFamily: {
         display: ["Georgia", "'Playfair Display'", "serif"],

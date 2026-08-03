@@ -74,20 +74,29 @@ function GrowingIcon({ active }: { active: boolean }) {
 
 // Library/Journey are the personal, static parts of the app (your own
 // reading progress, your own book); Circle/Growing are the community-
-// facing parts that change without the reader doing anything, so they
-// get a standing warm accent even when not the active tab, inviting a
-// check-in rather than waiting for an unread badge to justify one. Kept
-// one shade lighter than the active-page color (pink-dusty, not
-// pink-deep) so the two states stay visually distinct: pink-dusty reads
-// as "worth a look", pink-deep still means "you're here right now".
-// Deliberately just a color, no dot/badge of its own, so it complements
-// CircleUnreadCount's existing dot rather than competing with it.
-function tabTextClass(label: string, isActive: boolean, variant: "desktop" | "mobile"): string {
-  if (isActive) return variant === "desktop" ? "text-pink-deep font-medium" : "text-pink-deep";
-  if (label === "Circle" || label === "Growing") {
-    return variant === "desktop" ? "text-pink-dusty hover:text-pink-deep" : "text-pink-dusty";
-  }
-  return variant === "desktop" ? "text-gray-400 hover:text-ink" : "text-gray-400";
+// facing parts that change without the reader doing anything. A first
+// attempt gave them plain lighter-pink text as a standing accent, but
+// that read as a hover/active state rather than a deliberate signal --
+// it was just a paler shade of the same pink already used for "you're
+// here right now". This version instead reuses the app's existing
+// pill/chip language (Library page's "Available now"/"Coming soon"/
+// progress tags: text-[11px] font-semibold px-2.5 py-0.5 rounded-full)
+// so the label itself becomes a small tag rather than colored text, in
+// a color (coral) that belongs to neither the active-page pink nor any
+// existing status pill's blue/green/gold. The pill is present in BOTH
+// active and inactive states -- solid when active, soft when not -- so
+// Circle/Growing always read as "alive", with the solid/soft swap
+// preserving the separate "which tab am I on" signal. Icon color still
+// follows the same pink-deep/gray active convention every tab already
+// used; only the label text changes shape here.
+function isCommunityTab(label: string): boolean {
+  return label === "Circle" || label === "Growing";
+}
+
+function pillClass(isActive: boolean): string {
+  return `font-semibold rounded-full transition-colors ${
+    isActive ? "bg-coral text-white" : "bg-coral-soft text-coral"
+  }`;
 }
 
 export default function AppNav({ initial, avatarColor, hasUnread, journeyHref, isAdmin, currentUserId }: Props) {
@@ -144,18 +153,25 @@ export default function AppNav({ initial, avatarColor, hasUnread, journeyHref, i
           <div className="flex items-center gap-4">
             {/* Desktop inline nav */}
             <nav className="hidden md:flex items-center gap-6 text-sm mr-1">
-              {tabs.map(({ label, href }) => (
-                <Link
-                  key={label}
-                  href={href}
-                  className={`flex items-center gap-1.5 transition-colors ${tabTextClass(label, active === label, "desktop")}`}
-                >
-                  {label}
-                  {label === "Circle" && active !== "Circle" && (
-                    <CircleUnreadCount userId={currentUserId} />
-                  )}
-                </Link>
-              ))}
+              {tabs.map(({ label, href }) => {
+                const isActive = active === label;
+                return (
+                  <Link
+                    key={label}
+                    href={href}
+                    className={`flex items-center gap-1.5 transition-colors ${
+                      isActive ? "text-pink-deep font-medium" : "text-gray-400 hover:text-ink"
+                    }`}
+                  >
+                    {isCommunityTab(label) ? (
+                      <span className={`text-[11px] px-2.5 py-0.5 ${pillClass(isActive)}`}>{label}</span>
+                    ) : (
+                      label
+                    )}
+                    {label === "Circle" && !isActive && <CircleUnreadCount userId={currentUserId} />}
+                  </Link>
+                );
+              })}
               {isAdmin && (
                 <Link
                   href="/admin"
@@ -208,7 +224,9 @@ export default function AppNav({ initial, avatarColor, hasUnread, journeyHref, i
               <Link
                 key={label}
                 href={href}
-                className={`flex flex-col items-center gap-1 flex-1 py-2 text-[10px] font-medium tracking-wide transition-colors ${tabTextClass(label, isActive, "mobile")}`}
+                className={`flex flex-col items-center gap-1 flex-1 py-2 transition-colors ${
+                  isActive ? "text-pink-deep" : "text-gray-400"
+                }`}
               >
                 <span className="relative inline-flex overflow-visible">
                   <Icon active={isActive} />
@@ -218,7 +236,11 @@ export default function AppNav({ initial, avatarColor, hasUnread, journeyHref, i
                     </span>
                   )}
                 </span>
-                <span>{label}</span>
+                {isCommunityTab(label) ? (
+                  <span className={`text-[10px] px-2 py-0.5 ${pillClass(isActive)}`}>{label}</span>
+                ) : (
+                  <span className="text-[10px] font-medium tracking-wide">{label}</span>
+                )}
               </Link>
             );
           })}
