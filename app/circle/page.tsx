@@ -182,7 +182,12 @@ export default async function CirclePage({
       <main className="max-w-xl mx-auto px-5 py-8">
         <div className="mb-8">
           <h1 className="text-3xl mb-0.5">The Circle</h1>
-          <p className="text-gray-400 italic text-sm">{book.title}</p>
+          <p className="text-gray-400 italic text-sm mb-3">{book.title}</p>
+          <p className="text-sm text-gray-500 leading-relaxed">
+            Real reflections from readers on the same twelve chapters as you. Add
+            your own when you claim a badge, and keep adding more anytime as you
+            revisit a chapter and discover something new in yourself.
+          </p>
         </div>
 
         <CircleFeed

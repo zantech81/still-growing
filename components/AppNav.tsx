@@ -72,6 +72,24 @@ function GrowingIcon({ active }: { active: boolean }) {
   );
 }
 
+// Library/Journey are the personal, static parts of the app (your own
+// reading progress, your own book); Circle/Growing are the community-
+// facing parts that change without the reader doing anything, so they
+// get a standing warm accent even when not the active tab, inviting a
+// check-in rather than waiting for an unread badge to justify one. Kept
+// one shade lighter than the active-page color (pink-dusty, not
+// pink-deep) so the two states stay visually distinct: pink-dusty reads
+// as "worth a look", pink-deep still means "you're here right now".
+// Deliberately just a color, no dot/badge of its own, so it complements
+// CircleUnreadCount's existing dot rather than competing with it.
+function tabTextClass(label: string, isActive: boolean, variant: "desktop" | "mobile"): string {
+  if (isActive) return variant === "desktop" ? "text-pink-deep font-medium" : "text-pink-deep";
+  if (label === "Circle" || label === "Growing") {
+    return variant === "desktop" ? "text-pink-dusty hover:text-pink-deep" : "text-pink-dusty";
+  }
+  return variant === "desktop" ? "text-gray-400 hover:text-ink" : "text-gray-400";
+}
+
 export default function AppNav({ initial, avatarColor, hasUnread, journeyHref, isAdmin, currentUserId }: Props) {
   const pathname = usePathname();
   const [showPanel, setShowPanel] = useState(false);
@@ -130,11 +148,7 @@ export default function AppNav({ initial, avatarColor, hasUnread, journeyHref, i
                 <Link
                   key={label}
                   href={href}
-                  className={`flex items-center gap-1.5 transition-colors ${
-                    active === label
-                      ? "text-pink-deep font-medium"
-                      : "text-gray-400 hover:text-ink"
-                  }`}
+                  className={`flex items-center gap-1.5 transition-colors ${tabTextClass(label, active === label, "desktop")}`}
                 >
                   {label}
                   {label === "Circle" && active !== "Circle" && (
@@ -194,9 +208,7 @@ export default function AppNav({ initial, avatarColor, hasUnread, journeyHref, i
               <Link
                 key={label}
                 href={href}
-                className={`flex flex-col items-center gap-1 flex-1 py-2 text-[10px] font-medium tracking-wide transition-colors ${
-                  isActive ? "text-pink-deep" : "text-gray-400"
-                }`}
+                className={`flex flex-col items-center gap-1 flex-1 py-2 text-[10px] font-medium tracking-wide transition-colors ${tabTextClass(label, isActive, "mobile")}`}
               >
                 <span className="relative inline-flex overflow-visible">
                   <Icon active={isActive} />
