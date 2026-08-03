@@ -78,25 +78,31 @@ function GrowingIcon({ active }: { active: boolean }) {
 // attempt gave them plain lighter-pink text as a standing accent, but
 // that read as a hover/active state rather than a deliberate signal --
 // it was just a paler shade of the same pink already used for "you're
-// here right now". This version instead reuses the app's existing
-// pill/chip language (Library page's "Available now"/"Coming soon"/
-// progress tags: text-[11px] font-semibold px-2.5 py-0.5 rounded-full)
-// so the label itself becomes a small tag rather than colored text, in
-// a color (coral) that belongs to neither the active-page pink nor any
-// existing status pill's blue/green/gold. The pill is present in BOTH
-// active and inactive states -- solid when active, soft when not -- so
-// Circle/Growing always read as "alive", with the solid/soft swap
-// preserving the separate "which tab am I on" signal. Icon color still
-// follows the same pink-deep/gray active convention every tab already
-// used; only the label text changes shape here.
-function isCommunityTab(label: string): boolean {
+// here right now". A second attempt used one shared coral pill for
+// both; this version gives each its own thematically matched color
+// instead -- leaf (green) for Growing, literally a tree/growth feature,
+// and marigold (orange) for Circle, a warm community feeling -- reusing
+// the app's existing pill/chip language (Library page's "Available now"/
+// "Coming soon"/progress tags: text-[11px] font-semibold px-2.5 py-0.5
+// rounded-full) so the label itself becomes a small tag rather than
+// colored text. The pill is present in BOTH active and inactive states
+// -- solid when active, soft when not -- so Circle/Growing always read
+// as "alive", with the solid/soft swap preserving the separate "which
+// tab am I on" signal. Icon color still follows the same pink-deep/gray
+// active convention every tab already used; only the label text changes
+// shape here.
+const COMMUNITY_TAB_COLORS: Record<string, { solid: string; soft: string; softText: string }> = {
+  Circle: { solid: "bg-marigold", soft: "bg-marigold-soft", softText: "text-marigold" },
+  Growing: { solid: "bg-leaf", soft: "bg-leaf-soft", softText: "text-leaf" },
+};
+
+function isCommunityTab(label: string): label is keyof typeof COMMUNITY_TAB_COLORS {
   return label === "Circle" || label === "Growing";
 }
 
-function pillClass(isActive: boolean): string {
-  return `font-semibold rounded-full transition-colors ${
-    isActive ? "bg-coral text-white" : "bg-coral-soft text-coral"
-  }`;
+function pillClass(label: keyof typeof COMMUNITY_TAB_COLORS, isActive: boolean): string {
+  const c = COMMUNITY_TAB_COLORS[label];
+  return `font-semibold rounded-full transition-colors ${isActive ? `${c.solid} text-white` : `${c.soft} ${c.softText}`}`;
 }
 
 export default function AppNav({ initial, avatarColor, hasUnread, journeyHref, isAdmin, currentUserId }: Props) {
@@ -164,7 +170,7 @@ export default function AppNav({ initial, avatarColor, hasUnread, journeyHref, i
                     }`}
                   >
                     {isCommunityTab(label) ? (
-                      <span className={`text-[11px] px-2.5 py-0.5 ${pillClass(isActive)}`}>{label}</span>
+                      <span className={`text-[11px] px-2.5 py-0.5 ${pillClass(label, isActive)}`}>{label}</span>
                     ) : (
                       label
                     )}
@@ -237,7 +243,7 @@ export default function AppNav({ initial, avatarColor, hasUnread, journeyHref, i
                   )}
                 </span>
                 {isCommunityTab(label) ? (
-                  <span className={`text-[10px] px-2 py-0.5 ${pillClass(isActive)}`}>{label}</span>
+                  <span className={`text-[10px] px-2 py-0.5 ${pillClass(label, isActive)}`}>{label}</span>
                 ) : (
                   <span className="text-[10px] font-medium tracking-wide">{label}</span>
                 )}
