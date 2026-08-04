@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getChapterUrl } from "@/lib/site";
+import ChapterQrButton from "@/components/admin/ChapterQrButton";
 
 export default async function AdminChaptersPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -56,6 +58,7 @@ export default async function AdminChaptersPage({ params }: { params: { id: stri
                     {ch.mux_playback_id ? " · Video ✓" : ""}
                   </p>
                 </div>
+                <ChapterQrButton url={getChapterUrl(book.slug, ch.number)} chapterNumber={ch.number} />
                 <Link
                   href={`/admin/books/${params.id}/chapters/${ch.id}`}
                   className="text-sm text-pink-deep hover:underline flex-shrink-0"
