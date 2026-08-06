@@ -152,6 +152,24 @@ export default function ChapterForm({ bookId, chapter, badge }: Props) {
         return;
       }
 
+      // Only reached once the chapter row's own update has committed the
+      // NEW mux_playback_id -- deleting the OLD asset any earlier than
+      // this (e.g. as soon as MuxUploader.tsx finishes processing a
+      // replacement) would risk deleting a still-live video if this save
+      // never happened or failed above. Best-effort: awaited so it
+      // finishes before this function returns, but its own failure
+      // doesn't roll back or block the chapter save that already
+      // succeeded -- it just leaves an orphaned Mux asset for the next
+      // cleanup sweep, the same state every upload was already in before
+      // this existed.
+      const oldPlaybackId = chapter.mux_playback_id;
+      const newPlaybackId = form.muxPlaybackId || null;
+      if (oldPlaybackId && oldPlaybackId !== newPlaybackId) {
+        await fetch(`/api/admin/mux-upload?playbackId=${encodeURIComponent(oldPlaybackId)}`, {
+          method: "DELETE",
+        }).catch((err) => console.error("[chapter-form] Old Mux asset cleanup failed:", err));
+      }
+
       const badgePayload = {
         name: form.badgeName,
         icon: form.badgeIcon || null,
