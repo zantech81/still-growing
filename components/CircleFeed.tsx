@@ -199,6 +199,14 @@ export default function CircleFeed({
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []); // register once on mount, clean up on unmount
 
+  // Already includes its own "Milestone: " prefix (see
+  // components/admin/ChapterForm.tsx's "Milestone label" field and every
+  // other surface that shows it -- ClaimChapter.tsx, app/[book]/page.tsx,
+  // the admin chapter list -- all interpolate this value as-is, never
+  // prepending a second "Milestone: "), so this lookup's result is
+  // printed directly rather than wrapped in another label.
+  const milestoneByChapter = new Map(chapters.map((ch) => [ch.number, ch.milestone_label]));
+
   let visible = activeChapter === null
     ? reflections
     : reflections.filter((r) => r.chapter_number === activeChapter);
@@ -371,6 +379,12 @@ export default function CircleFeed({
                     <span className="text-sm font-medium text-ink truncate">{authorName}</span>
                   </Link>
                   <div className="flex items-center gap-1.5 flex-shrink-0 text-xs text-gray-300">
+                    {milestoneByChapter.get(r.chapter_number) && (
+                      <>
+                        <span>{milestoneByChapter.get(r.chapter_number)}</span>
+                        <span>·</span>
+                      </>
+                    )}
                     <span>Ch.&nbsp;{r.chapter_number}</span>
                     <span>·</span>
                     <span>{relativeTime(r.created_at)}</span>
