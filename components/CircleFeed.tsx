@@ -367,8 +367,8 @@ export default function CircleFeed({
                 key={r.id}
                 className="bg-white border border-pink-pale rounded-xl2 p-5"
               >
-                <div className="flex items-center gap-3 mb-3">
-                  <Link href={`/u/${r.user_id}`} className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 mb-3">
+                  <Link href={`/u/${r.user_id}`} className="flex items-center gap-3 min-w-0 sm:flex-1 hover:opacity-80 transition-opacity">
                     <Avatar
                       avatarKey={author?.avatar_key ?? null}
                       countryCode={author?.country_code ?? null}
@@ -378,10 +378,10 @@ export default function CircleFeed({
                     />
                     <span className="text-sm font-medium text-ink truncate">{authorName}</span>
                   </Link>
-                  <div className="flex items-center gap-1.5 flex-shrink-0 text-xs text-gray-300">
+                  <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap sm:flex-shrink-0 pl-11 sm:pl-0 text-xs text-gray-300">
                     {milestoneByChapter.get(r.chapter_number) && (
                       <>
-                        <span>{milestoneByChapter.get(r.chapter_number)}</span>
+                        <span className="truncate max-w-[180px] sm:max-w-none">{milestoneByChapter.get(r.chapter_number)}</span>
                         <span>·</span>
                       </>
                     )}
