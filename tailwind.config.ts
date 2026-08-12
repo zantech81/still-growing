@@ -34,7 +34,12 @@ const config: Config = {
       },
       fontFamily: {
         display: ["Georgia", "'Playfair Display'", "serif"],
-        body: ["'Nunito'", "'Quicksand'", "system-ui", "sans-serif"],
+        // Backed by app/layout.tsx's next/font/local Nunito loader --
+        // was previously the literal name "Nunito", which only rendered
+        // correctly on machines that happened to have it installed as a
+        // system font, silently falling back to system-ui/sans-serif for
+        // everyone else since it was never actually loaded as a web font.
+        body: ["var(--font-nunito)", "system-ui", "sans-serif"],
       },
       borderRadius: {
         xl2: "1.5rem",
