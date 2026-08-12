@@ -393,7 +393,14 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
         <>
           {/* Milestone unlocked card */}
           <div className="bg-pink-pale rounded-xl2 p-6 text-center mb-6">
-            <p className="uppercase tracking-wide text-pink-deep text-sm mb-3">Milestone Unlocked!</p>
+            {/* font-bold: at text-sm regular weight, an uppercase "!" reads
+                as a bare vertical stroke indistinguishable from "I"
+                (confirmed by screenshot comparison -- reducing tracking
+                alone did NOT fix it, only added weight or size did). Bold
+                keeps the same small tracked-caps eyebrow style used
+                elsewhere in the app (BABY WISDOM, BOOKS, etc.) instead of
+                dropping uppercase. */}
+            <p className="uppercase tracking-wide text-pink-deep text-sm font-bold mb-3">Milestone Unlocked!</p>
             {badge?.badge_image_url && (
               <img
                 src={badge.badge_image_url}
