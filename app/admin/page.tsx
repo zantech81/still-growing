@@ -10,7 +10,7 @@ export default async function AdminDashboard() {
     { count: reflectionCount },
     { count: reactionCount },
   ] = await Promise.all([
-    supabase.from("users").select("*", { count: "exact", head: true }),
+    supabase.from("users").select("*", { count: "exact", head: true }).eq("is_demo", false),
     supabase.from("books").select("id, title, status"),
     supabase.from("reflections").select("*", { count: "exact", head: true }).eq("is_hidden", false),
     supabase.from("reactions").select("*", { count: "exact", head: true }),
