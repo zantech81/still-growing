@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { moderateReflection } from "@/lib/moderation";
-import { CONTACT_INFO_MESSAGE, HARMFUL_MESSAGE, productFeedbackMessage } from "@/lib/moderationMessages";
+import { getActiveChapterPasswords, moderateReflection } from "@/lib/moderation";
+import { CHAPTER_PASSWORD_MESSAGE, CONTACT_INFO_MESSAGE, HARMFUL_MESSAGE, productFeedbackMessage } from "@/lib/moderationMessages";
 import { graphemeLength } from "@/lib/text";
 
 const EDIT_LIMIT = 3;
@@ -82,9 +82,13 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   // Edits go through the same moderation as new submissions. A reflection
   // isn't exempt from the rules just because the original text passed them.
-  const verdict = moderateReflection(trimmed);
+  const chapterPasswords = await getActiveChapterPasswords(supabase);
+  const verdict = moderateReflection(trimmed, chapterPasswords);
   if (verdict.type === "blocked_contact") {
     return NextResponse.json({ error: CONTACT_INFO_MESSAGE, code: "contact_info" }, { status: 400 });
+  }
+  if (verdict.type === "blocked_password") {
+    return NextResponse.json({ error: CHAPTER_PASSWORD_MESSAGE, code: "chapter_password" }, { status: 400 });
   }
   if (verdict.type === "blocked_harmful") {
     return NextResponse.json({ error: HARMFUL_MESSAGE, code: "harmful" }, { status: 400 });

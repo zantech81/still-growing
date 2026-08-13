@@ -1,4 +1,5 @@
 import { Filter } from "bad-words";
+import type { createClient } from "@/lib/supabase/server";
 
 // ── Leetspeak normalization ──────────────────────────────────────────────────
 // Maps common obfuscation substitutions back to their base letters so a single
@@ -132,6 +133,49 @@ export function hasContactInfo(text: string): boolean {
   );
 }
 
+// ── Chapter passwords ─────────────────────────────────────────────────────────
+// Chapter unlock codes are short alphanumeric strings (e.g. "K3M9P2"), not
+// dictionary words, so normalizeText()'s leetspeak map is the wrong tool
+// here: it would map digits like "1"/"3" to letters and strip any digit it
+// doesn't recognize ("2", "6", "8", "9"...) down to a space, corrupting the
+// very characters that make one code different from another. What actually
+// needs defeating is the same trick as "k3m-9p2" or "K 3 M 9 P 2" for a
+// link -- characters separated by spaces/punctuation to dodge a plain
+// substring check -- so this keeps every letter and digit exactly as
+// typed and only strips the separators between them.
+function normalizeForCodeMatch(input: string): string {
+  return input.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+// A code shorter than this could plausibly appear inside ordinary text by
+// coincidence (e.g. a 2-character code inside an unrelated word), so it's
+// excluded rather than risk blocking a real reflection over a false match.
+// Chapter codes are always generated well above this length in practice.
+const MIN_PASSWORD_MATCH_LENGTH = 4;
+
+export function hasChapterPassword(text: string, passwords: string[]): boolean {
+  const normalizedText = normalizeForCodeMatch(text);
+  if (!normalizedText) return false;
+
+  return passwords.some((code) => {
+    const normalizedCode = normalizeForCodeMatch(code);
+    return normalizedCode.length >= MIN_PASSWORD_MATCH_LENGTH && normalizedText.includes(normalizedCode);
+  });
+}
+
+// Fetched live on every call rather than cached: codes are admin-editable
+// (components/admin/ChapterForm.tsx) and must stay in sync automatically,
+// including chapters from books other than whichever one a given
+// reflection happens to be for -- a reader could paste a different
+// chapter's password into any reflection, so every currently-set code
+// across every chapter is checked regardless of context.
+export async function getActiveChapterPasswords(
+  supabase: ReturnType<typeof createClient>
+): Promise<string[]> {
+  const { data } = await supabase.from("chapters").select("unlock_code").not("unlock_code", "is", null);
+  return (data ?? []).map((row) => row.unlock_code).filter((code): code is string => !!code);
+}
+
 // ── Spam (soft signal, not a hard block) ────────────────────────────────────
 const PROMO_PHRASES = ["dm me", "check out my", "discount code", "click here", "link in bio"];
 
@@ -160,13 +204,24 @@ export type ModerationVerdict =
   | { type: "spam" }
   | { type: "blocked_contact" }
   | { type: "blocked_harmful" }
-  | { type: "blocked_product" };
+  | { type: "blocked_product" }
+  | { type: "blocked_password" };
 
 // Note: this deliberately does NOT check tone/sentiment. Words like "failed",
 // "afraid", "no", "hurt", "broken" are never flagged. Only profanity/hate,
-// the specific product-harm list above, and contact info/links are filtered.
-export function moderateReflection(rawText: string): ModerationVerdict {
+// the specific product-harm list above, contact info/links, and chapter
+// passwords are filtered.
+//
+// chapterPasswords is caller-supplied (via getActiveChapterPasswords) rather
+// than fetched in here, so this function stays a pure, synchronous,
+// dependency-free check -- every other rule in this file already works that
+// way, and every existing call site already has a Supabase client on hand
+// to fetch the live list with.
+export function moderateReflection(rawText: string, chapterPasswords: string[] = []): ModerationVerdict {
   if (hasContactInfo(rawText)) return { type: "blocked_contact" };
+  if (chapterPasswords.length > 0 && hasChapterPassword(rawText, chapterPasswords)) {
+    return { type: "blocked_password" };
+  }
 
   const normalized = normalizeText(rawText);
 

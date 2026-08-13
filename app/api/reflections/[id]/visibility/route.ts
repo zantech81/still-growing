@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { moderateReflection } from "@/lib/moderation";
+import { getActiveChapterPasswords, moderateReflection } from "@/lib/moderation";
 import {
+  CHAPTER_PASSWORD_MESSAGE,
   CONTACT_INFO_MESSAGE,
   HARMFUL_MESSAGE,
   SPAM_MESSAGE,
@@ -65,9 +66,13 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
     // Becoming visible for the first time: run the exact same moderation
     // pipeline a brand-new submission goes through.
-    const verdict = moderateReflection(existing.text);
+    const chapterPasswords = await getActiveChapterPasswords(supabase);
+    const verdict = moderateReflection(existing.text, chapterPasswords);
     if (verdict.type === "blocked_contact") {
       return NextResponse.json({ error: CONTACT_INFO_MESSAGE, code: "contact_info" }, { status: 400 });
+    }
+    if (verdict.type === "blocked_password") {
+      return NextResponse.json({ error: CHAPTER_PASSWORD_MESSAGE, code: "chapter_password" }, { status: 400 });
     }
     if (verdict.type === "blocked_harmful") {
       return NextResponse.json({ error: HARMFUL_MESSAGE, code: "harmful" }, { status: 400 });

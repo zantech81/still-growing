@@ -6,6 +6,8 @@
 export const CONTACT_INFO_MESSAGE =
   "No links, emails, or phone numbers, please. This is a space for your own reflection.";
 export const HARMFUL_MESSAGE = "Let's keep this space kind. Please rewrite your reflection.";
+export const CHAPTER_PASSWORD_MESSAGE =
+  "No chapter passwords, please. This is a space for your own reflection.";
 export const SPAM_MESSAGE =
   "This reads like spam to our filters and can't be shared to the Circle right now.";
 
