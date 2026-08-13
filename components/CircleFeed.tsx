@@ -10,17 +10,41 @@ import { COUNTRIES } from "@/lib/countries";
 
 const COUNTRY_NAMES = new Map(COUNTRIES.map((c) => [c.code, c.name]));
 
-// "2026-08" -- sortable and stable across locales, unlike a formatted
-// label. Local time, not UTC: a reflection posted late at night should
-// group under the month the reader who wrote it actually experienced.
-function dateKey(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
+// Fixed relative ranges rather than a growing list of exact months: scales
+// to any amount of Circle history without the dropdown itself growing, and
+// matches how people actually browse a feed ("this month", not "August").
+type DateRange = "" | "week" | "month" | "3months" | "year";
 
-function dateLabel(key: string): string {
-  const [year, month] = key.split("-").map(Number);
-  return new Date(year, month - 1, 1).toLocaleDateString("en", { month: "short", year: "numeric" });
+// Computed off wall-clock "now" every time this runs, not stored calendar
+// boundaries -- so "This week" on a Tuesday always means "since this
+// Monday," not a boundary baked in at render/fetch time. "Week"/"month"/
+// "year" are calendar-anchored (Monday, the 1st, Jan 1st) per the
+// product ask -- these are named units, not durations, so a rolling
+// 7/30/365-day window would be wrong ("this month" on the 2nd shouldn't
+// mean "the last 30 days"). "Last 3 months" is the one genuine rolling
+// window in the set (its own name says "last," not "this"), anchored to
+// today's date via setMonth rather than to the start of a quarter.
+function dateRangeStart(range: DateRange, now: Date): Date | null {
+  switch (range) {
+    case "week": {
+      const d = new Date(now);
+      d.setHours(0, 0, 0, 0);
+      const daysSinceMonday = (d.getDay() + 6) % 7; // getDay(): 0=Sun..6=Sat
+      d.setDate(d.getDate() - daysSinceMonday);
+      return d;
+    }
+    case "month":
+      return new Date(now.getFullYear(), now.getMonth(), 1);
+    case "3months": {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 3);
+      return d;
+    }
+    case "year":
+      return new Date(now.getFullYear(), 0, 1);
+    default:
+      return null;
+  }
 }
 
 type Author = {
@@ -188,7 +212,7 @@ export default function CircleFeed({
   const [authorScope, setAuthorScope] = useState<"all" | "mine">("all");
   const [chapterFilter, setChapterFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState<DateRange>("");
   const [reacted, setReacted] = useState<Set<string>>(new Set(myReactionIds));
   const [reported, setReported] = useState<Set<string>>(new Set(myReportedIds));
   const [rootedFor, setRootedFor] = useState<Set<string>>(new Set(myRootedForIds));
@@ -265,20 +289,17 @@ export default function CircleFeed({
       .sort((a, b) => (COUNTRY_NAMES.get(a) ?? a).localeCompare(COUNTRY_NAMES.get(b) ?? b));
   }, [reflections, myCountryCode]);
 
-  const dateOptions = useMemo(() => {
-    const keys = new Set<string>();
-    for (const r of reflections) keys.add(dateKey(r.created_at));
-    return [...keys].sort().reverse(); // newest first, matching the feed's own default order
-  }, [reflections]);
-
   // Four independent filters, ANDed by successive .filter() calls --
   // deliberately not a single selected-filter variable, so e.g. Mine +
-  // Chapter 3 + a specific month can all narrow the same result at once.
+  // Chapter 3 + a specific range can all narrow the same result at once.
   let visible = reflections;
   if (authorScope === "mine") visible = visible.filter((r) => r.user_id === currentUserId);
   if (chapterFilter) visible = visible.filter((r) => r.chapter_number === Number(chapterFilter));
   if (countryFilter) visible = visible.filter((r) => getAuthor(r)?.country_code === countryFilter);
-  if (dateFilter) visible = visible.filter((r) => dateKey(r.created_at) === dateFilter);
+  if (dateFilter) {
+    const start = dateRangeStart(dateFilter, new Date());
+    if (start) visible = visible.filter((r) => new Date(r.created_at) >= start);
+  }
 
   const anyFilterActive =
     authorScope === "mine" || !!chapterFilter || !!countryFilter || !!dateFilter;
@@ -439,21 +460,18 @@ export default function CircleFeed({
               ))}
             </select>
 
-            {dateOptions.length > 0 && (
-              <select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className={selectClass(!!dateFilter)}
-                aria-label="Filter by month"
-              >
-                <option value="">All Dates</option>
-                {dateOptions.map((key) => (
-                  <option key={key} value={key}>
-                    {dateLabel(key)}
-                  </option>
-                ))}
-              </select>
-            )}
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value as DateRange)}
+              className={selectClass(!!dateFilter)}
+              aria-label="Filter by date range"
+            >
+              <option value="">All Time</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+              <option value="3months">Last 3 Months</option>
+              <option value="year">This Year</option>
+            </select>
           </div>
         </div>
       )}
