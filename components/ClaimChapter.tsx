@@ -22,6 +22,8 @@ type PastReflection = {
   is_pinned: boolean;
 };
 
+type ChapterNavTarget = { number: number; unlocked: boolean } | null;
+
 type Props = {
   book: { id: string; title: string; slug: string };
   chapter: {
@@ -31,6 +33,7 @@ type Props = {
     milestone_label: string | null;
     reflect_question: string;
     mux_playback_id: string | null;
+    thumbnail_time: number | null;
     badge: Badge | null;
     hasUnlockCode: boolean;
   };
@@ -39,7 +42,43 @@ type Props = {
   pastReflections: PastReflection[];
   userId: string;
   maxLength: number;
+  prevChapter: ChapterNavTarget;
+  nextChapter: ChapterNavTarget;
 };
+
+// Always visible for both directions (so a reader always sees where they
+// are in the 12 chapters, not just when navigation happens to be
+// available), but only a real <Link> when the target chapter has actually
+// been unlocked/claimed -- otherwise a plain disabled-looking span, never
+// a link to a chapter the reader can't view yet.
+function ChapterNavLink({
+  direction,
+  target,
+  bookSlug,
+}: {
+  direction: "prev" | "next";
+  target: ChapterNavTarget;
+  bookSlug: string;
+}) {
+  const label = direction === "prev" ? "← Previous chapter" : "Next chapter →";
+
+  if (target?.unlocked) {
+    return (
+      <Link
+        href={`/${bookSlug}/ch${target.number}`}
+        className="text-sm text-gray-400 hover:text-ink transition-colors"
+      >
+        {label}
+      </Link>
+    );
+  }
+
+  return (
+    <span aria-disabled="true" className="text-sm text-gray-200 cursor-not-allowed select-none">
+      {label}
+    </span>
+  );
+}
 
 function relativeTime(iso: string): string {
   const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -52,7 +91,7 @@ function relativeTime(iso: string): string {
   return `${days}d ago`;
 }
 
-export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, pastReflections, userId, maxLength }: Props) {
+export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, pastReflections, userId, maxLength, prevChapter, nextChapter }: Props) {
   const draftKey = `sg_draft_${chapter.id}_${userId}`;
 
   const [reflection, setReflection] = useState("");
@@ -300,10 +339,18 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
     </Link>
   );
 
+  const chapterNav = (
+    <div className="mb-8 flex items-center justify-between gap-4">
+      <ChapterNavLink direction="prev" target={prevChapter} bookSlug={book.slug} />
+      <ChapterNavLink direction="next" target={nextChapter} bookSlug={book.slug} />
+    </div>
+  );
+
   if (isLocked) {
     return (
       <main className="max-w-lg mx-auto px-6 py-8">
-        <div className="mb-8">{backLink}</div>
+        <div className="mb-4">{backLink}</div>
+        {chapterNav}
         <div className="py-16 text-center">
           <h1 className="text-2xl mb-3">Not quite yet</h1>
           <p className="text-gray-500">This chapter unlocks once you've reached it in your journey. Keep going!</p>
@@ -314,7 +361,8 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
 
   return (
     <main className="max-w-lg mx-auto px-6 py-8">
-      <div className="mb-8">{backLink}</div>
+      <div className="mb-4">{backLink}</div>
+      {chapterNav}
 
       <p className="text-sm text-gray-500 mb-1">
         {book.title} · {chapter.milestone_label}
@@ -466,6 +514,7 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
               <MuxPlayer
                 playbackId={chapter.mux_playback_id}
                 streamType="on-demand"
+                thumbnailTime={chapter.thumbnail_time ?? undefined}
                 className="w-full max-w-[360px] mx-auto rounded-xl2 overflow-hidden"
                 style={{ aspectRatio: "9 / 16" }}
               />

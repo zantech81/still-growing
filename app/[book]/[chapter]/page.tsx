@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import AppShell from "@/components/AppShell";
 import ClaimChapter from "@/components/ClaimChapter";
 
 export default async function ChapterPage({
@@ -37,7 +38,7 @@ export default async function ChapterPage({
 
   const { data: chapter } = await supabase
     .from("chapters")
-    .select("id, number, title, milestone_label, reflect_question, mux_playback_id, unlock_code, badges(id, name, icon, description, badge_image_url)")
+    .select("id, number, title, milestone_label, reflect_question, mux_playback_id, thumbnail_time, unlock_code, badges(id, name, icon, description, badge_image_url)")
     .eq("book_id", book.id)
     .eq("number", chapterNumber)
     .single();
@@ -61,21 +62,23 @@ export default async function ChapterPage({
     .eq("book_id", book.id)
     .maybeSingle();
 
-  const [{ data: existingBadge }, { data: rawPastReflections }, { data: myPins }] = await Promise.all([
-    supabase
-      .from("user_badges")
-      .select("id")
-      .eq("user_id", user!.id)
-      .eq("badge_id", badge?.id ?? "")
-      .maybeSingle(),
-    supabase
-      .from("reflections")
-      .select("id, text, is_hidden, flag_reason, edit_count, hearts_count, created_at")
-      .eq("chapter_id", chapter.id)
-      .eq("user_id", user!.id)
-      .order("created_at", { ascending: false }),
-    supabase.from("profile_pins").select("reflection_id").eq("user_id", user!.id),
-  ]);
+  const [{ data: existingBadge }, { data: rawPastReflections }, { data: myPins }, { count: totalChapters }] =
+    await Promise.all([
+      supabase
+        .from("user_badges")
+        .select("id")
+        .eq("user_id", user!.id)
+        .eq("badge_id", badge?.id ?? "")
+        .maybeSingle(),
+      supabase
+        .from("reflections")
+        .select("id, text, is_hidden, flag_reason, edit_count, hearts_count, created_at")
+        .eq("chapter_id", chapter.id)
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false }),
+      supabase.from("profile_pins").select("reflection_id").eq("user_id", user!.id),
+      supabase.from("chapters").select("id", { count: "exact", head: true }).eq("book_id", book.id),
+    ]);
 
   const pinnedIds = new Set((myPins ?? []).map((p) => p.reflection_id as string));
   const pastReflections = (rawPastReflections ?? []).map((r) => ({ ...r, is_pinned: pinnedIds.has(r.id) }));
@@ -87,15 +90,32 @@ export default async function ChapterPage({
   const maxLength: number =
     ((book.gamification_config as GamConfig | null)?.reflection?.max_length) ?? 350;
 
+  // A chapter is reachable (not "Not quite yet") once its number is at or
+  // below current_chapter -- same rule app/[book]/page.tsx uses for its
+  // earned/available/locked card states. Ch. 1 has no previous, and
+  // whatever the book's last chapter number is has no next, so both ends
+  // naturally fall out of these bounds checks rather than needing a
+  // special case.
+  const prevChapter =
+    chapterNumber > 1 ? { number: chapterNumber - 1, unlocked: chapterNumber - 1 <= currentChapter } : null;
+  const nextChapter =
+    chapterNumber < (totalChapters ?? 0)
+      ? { number: chapterNumber + 1, unlocked: chapterNumber + 1 <= currentChapter }
+      : null;
+
   return (
-    <ClaimChapter
-      book={book}
-      chapter={{ ...chapterFields, badge, hasUnlockCode }}
-      alreadyClaimed={!!existingBadge}
-      isLocked={isLocked}
-      pastReflections={pastReflections}
-      userId={user!.id}
-      maxLength={maxLength}
-    />
+    <AppShell>
+      <ClaimChapter
+        book={book}
+        chapter={{ ...chapterFields, badge, hasUnlockCode }}
+        alreadyClaimed={!!existingBadge}
+        isLocked={isLocked}
+        pastReflections={pastReflections}
+        userId={user!.id}
+        maxLength={maxLength}
+        prevChapter={prevChapter}
+        nextChapter={nextChapter}
+      />
+    </AppShell>
   );
 }

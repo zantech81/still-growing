@@ -12,7 +12,7 @@ export default async function EditChapterPage({
   const [{ data: chapter }, { data: badge }, { data: book }] = await Promise.all([
     supabase
       .from("chapters")
-      .select("id, number, title, milestone_label, reflect_question, challenge_text, mux_playback_id, unlock_code")
+      .select("id, number, title, milestone_label, reflect_question, challenge_text, mux_playback_id, thumbnail_time, unlock_code")
       .eq("id", params.chapterId)
       .eq("book_id", params.id)
       .single(),

@@ -219,11 +219,10 @@ export default async function JourneyPage({
                 )}
 
                 <div className="flex-1 min-w-0">
-                  {chapter.milestone_label && (
-                    <p className="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">
-                      {chapter.milestone_label}
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-400 mb-0.5 uppercase tracking-wide">
+                    Ch. {chapter.number}
+                    {chapter.milestone_label && ` · ${chapter.milestone_label}`}
+                  </p>
                   <p className="font-display text-plum leading-snug">{chapter.title}</p>
                   {state === "earned" && badge && (
                     <p className="text-xs text-pink-deep mt-1">{badge.name}</p>

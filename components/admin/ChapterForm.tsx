@@ -13,6 +13,7 @@ type ChapterData = {
   reflect_question: string | null;
   challenge_text: string | null;
   mux_playback_id: string | null;
+  thumbnail_time: number | null;
   unlock_code: string | null;
 };
 
@@ -61,6 +62,7 @@ export default function ChapterForm({ bookId, chapter, badge }: Props) {
     reflectQuestion: chapter?.reflect_question ?? "",
     challengeText: chapter?.challenge_text ?? "",
     muxPlaybackId: chapter?.mux_playback_id ?? "",
+    thumbnailTime: chapter?.thumbnail_time?.toString() ?? "",
     unlockCode: chapter?.unlock_code ?? "",
     badgeName: badge?.name ?? "",
     badgeIcon: badge?.icon ?? "",
@@ -124,6 +126,15 @@ export default function ChapterForm({ bookId, chapter, badge }: Props) {
       return;
     }
 
+    let thumbnailTime: number | null = null;
+    if (form.thumbnailTime.trim()) {
+      thumbnailTime = Number(form.thumbnailTime);
+      if (isNaN(thumbnailTime) || thumbnailTime < 0) {
+        setErrors({ thumbnailTime: "Must be a number of seconds, 0 or greater." });
+        return;
+      }
+    }
+
     setSaving(true);
     setErrors({});
 
@@ -137,6 +148,7 @@ export default function ChapterForm({ bookId, chapter, badge }: Props) {
       reflect_question: form.reflectQuestion.trim(),
       challenge_text: form.challengeText.trim(),
       mux_playback_id: form.muxPlaybackId || null,
+      thumbnail_time: thumbnailTime,
       unlock_code: form.unlockCode.toUpperCase().trim() || null,
     };
 
@@ -287,6 +299,21 @@ export default function ChapterForm({ bookId, chapter, badge }: Props) {
         <MuxUploader
           value={form.muxPlaybackId}
           onChange={(id) => set("muxPlaybackId", id)}
+        />
+      </Field>
+
+      <Field
+        label="Thumbnail time (seconds)"
+        error={errors.thumbnailTime}
+        hint="Frame to use for the video's poster image, e.g. 0.26. Leave blank to use Mux's own default."
+      >
+        <input
+          type="text"
+          inputMode="decimal"
+          value={form.thumbnailTime}
+          onChange={(e) => set("thumbnailTime", e.target.value)}
+          className={input(errors.thumbnailTime)}
+          placeholder="0.26"
         />
       </Field>
 
