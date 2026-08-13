@@ -107,23 +107,26 @@ export async function GET(
   // are no longer always the same person.
   const { data: reflection } = await admin
     .from("reflections")
-    .select("text, chapter_number, user_id")
+    .select("text, chapter_number, chapter_id, user_id")
     .eq("id", share.reference_id)
     .maybeSingle();
 
   if (!reflection) return new Response("Not found", { status: 404 });
 
-  const { data: author } = await admin
-    .from("users")
-    .select("nickname, display_name")
-    .eq("id", reflection.user_id)
-    .maybeSingle();
+  const [{ data: author }, { data: chapter }] = await Promise.all([
+    admin.from("users").select("nickname, display_name").eq("id", reflection.user_id).maybeSingle(),
+    admin.from("chapters").select("milestone_label").eq("id", reflection.chapter_id).maybeSingle(),
+  ]);
 
   return new ImageResponse(
     reflectionCardTree({
       text: reflection.text,
       authorName: author?.nickname ?? author?.display_name ?? "A reader",
       chapterNumber: reflection.chapter_number,
+      // Already carries its own "Milestone: " prefix (see the comment in
+      // CircleFeed.tsx), so it's interpolated as-is, same as every other
+      // surface that shows it.
+      milestoneLabel: chapter?.milestone_label ?? null,
       shareUrl,
     }),
     { width: 1200, height: 630, fonts }

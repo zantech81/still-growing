@@ -49,12 +49,18 @@ export default function BookPromo({
       </p>
 
       {salesUrl && (
-        <a
-          href={salesUrl}
-          className="inline-block bg-pink-pale hover:bg-pink-dusty transition-colors text-pink-deep font-display text-base px-8 py-3 rounded-xl2"
-        >
-          Get the Book →
-        </a>
+        <>
+          {/* Scoped to the book specifically -- a one-time purchase --
+              never to be confused with the app-access line above, which
+              is about the (free, no-subscription) app itself. */}
+          <p className="text-xs text-gray-400 mb-2">$14.99 · one-time purchase</p>
+          <a
+            href={salesUrl}
+            className="inline-block bg-pink-pale hover:bg-pink-dusty transition-colors text-pink-deep font-display text-base px-8 py-3 rounded-xl2"
+          >
+            Get the Book →
+          </a>
+        </>
       )}
 
       <p className="text-xs text-gray-400 mt-4">

@@ -273,11 +273,13 @@ export function reflectionCardTree({
   text,
   authorName,
   chapterNumber,
+  milestoneLabel,
   shareUrl,
 }: {
   text: string;
   authorName: string;
   chapterNumber: number;
+  milestoneLabel: string | null;
   shareUrl: string;
 }) {
   return (
@@ -333,8 +335,16 @@ export function reflectionCardTree({
         >
           &ldquo;{truncate(text, 220)}&rdquo;
         </div>
-        <div style={{ display: "flex", fontFamily: "Nunito", fontSize: 22, color: COLORS.pinkDeep }}>
-          {authorName} · Ch. {chapterNumber}
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "Nunito",
+            fontSize: 22,
+            color: COLORS.pinkDeep,
+            textAlign: "center",
+          }}
+        >
+          {authorName} · {milestoneLabel ? `${milestoneLabel} · ` : ""}Ch. {chapterNumber}
         </div>
       </div>
 

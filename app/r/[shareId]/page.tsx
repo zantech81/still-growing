@@ -158,7 +158,7 @@ export default async function ShareLandingPage({ params }: { params: { shareId: 
         // the stats render below the whole image -- inside the same
         // continuous card, not above the baked-in footer, since nothing
         // can render "between" pixels already flattened into one PNG.
-        <div className="rounded-2xl border border-pink-pale shadow-xl bg-cream overflow-hidden mb-16">
+        <div className="rounded-2xl border border-pink-pale shadow-xl bg-cream overflow-hidden mb-6">
           <img src={imageUrl} alt="Shared from Still Growing" className="w-full block" />
           {growingTreeExtra && <GrowingTreeStats extra={growingTreeExtra} className="px-8 pt-3 pb-7" />}
         </div>
@@ -169,11 +169,27 @@ export default async function ShareLandingPage({ params }: { params: { shareId: 
             alt="Shared from Still Growing"
             className="w-full rounded-2xl border border-pink-pale shadow-xl mb-4"
           />
-          <div className="mb-16">
-            {caption && <p className="text-center text-sm text-gray-400">{caption}</p>}
+          <div className="mb-6">
+            {/* Reflection's caption is the same quote already baked into
+                the OG image above (only there for crawlers/screen readers
+                that can't parse the Satori-rendered <img>), so it's
+                sr-only here -- a sighted visitor would otherwise see the
+                quote repeated a third time (once in the social preview,
+                once in the image, once here). Badge's caption ("Chapter
+                N: Title") isn't a duplicate of anything in the badge
+                image, so it stays visible. */}
+            {caption && (
+              <p className={share.type === "reflection" ? "sr-only" : "text-center text-sm text-gray-400"}>
+                {caption}
+              </p>
+            )}
           </div>
         </>
       )}
+
+      <p className="max-w-sm mx-auto text-center text-xs text-gray-400 mb-16">
+        Part of a 12-chapter journey with badges and reader reflections.
+      </p>
 
       {/* Book pitch, written for cold traffic with zero prior context.
           Scoped to this page (and app/u/[userId]/page.tsx, under its own
