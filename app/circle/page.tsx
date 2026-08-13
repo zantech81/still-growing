@@ -187,8 +187,8 @@ export default async function CirclePage({
             Real reflections from readers on the same twelve chapters as you. Add
             your own when you claim a badge, and keep adding more anytime as you
             revisit a chapter and discover something new in yourself. No one can
-            reply, message, or reach you here, so it's safe to write exactly
-            what's true.
+            reply, message, or reach you here, making this a safe space to
+            write exactly what's true.
           </p>
         </div>
 
