@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import MuxPlayer from "@mux/mux-player-react";
 import ReflectionActions from "./ReflectionActions";
 import ShareButton from "./ShareButton";
+import EmojiPicker from "./EmojiPicker";
+import { graphemeLength, insertAtCursor } from "@/lib/text";
 
 type Badge = { id: string; name: string; icon: string | null; description: string | null; badge_image_url: string | null };
 
@@ -89,6 +91,11 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
   // Autosave debounce ref
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Textarea refs so the emoji picker can insert at the live cursor
+  // position instead of always appending to the end.
+  const reflectionTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const extraReflectionTextareaRef = useRef<HTMLTextAreaElement>(null);
+
   // Restore draft on mount (only if not already claimed)
   useEffect(() => {
     if (!claimed) {
@@ -107,13 +114,32 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
     }, 2000);
   }
 
+  function handleEmojiInsert(emoji: string) {
+    const { text, cursor } = insertAtCursor(reflectionTextareaRef.current, reflection, emoji);
+    handleReflectionChange(text);
+    requestAnimationFrame(() => {
+      reflectionTextareaRef.current?.focus();
+      reflectionTextareaRef.current?.setSelectionRange(cursor, cursor);
+    });
+  }
+
+  function handleExtraEmojiInsert(emoji: string) {
+    const { text, cursor } = insertAtCursor(extraReflectionTextareaRef.current, extraReflection, emoji);
+    setExtraReflection(text);
+    setExtraError(null);
+    requestAnimationFrame(() => {
+      extraReflectionTextareaRef.current?.focus();
+      extraReflectionTextareaRef.current?.setSelectionRange(cursor, cursor);
+    });
+  }
+
   async function handleClaim() {
     if (!reflection.trim()) {
       setError("Write your reflection first, then claim your badge.");
       return;
     }
-    if (reflection.length > maxLength) {
-      setError(`Reflection must be ${maxLength} characters or fewer (currently ${reflection.length}).`);
+    if (graphemeLength(reflection) > maxLength) {
+      setError(`Reflection must be ${maxLength} characters or fewer (currently ${graphemeLength(reflection)}).`);
       return;
     }
     if (chapter.hasUnlockCode && !unlockCode.trim()) {
@@ -209,8 +235,8 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
       setExtraError("Write something first.");
       return;
     }
-    if (extraReflection.length > maxLength) {
-      setExtraError(`Reflection must be ${maxLength} characters or fewer (currently ${extraReflection.length}).`);
+    if (graphemeLength(extraReflection) > maxLength) {
+      setExtraError(`Reflection must be ${maxLength} characters or fewer (currently ${graphemeLength(extraReflection)}).`);
       return;
     }
     setExtraSubmitting(true);
@@ -313,23 +339,25 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
             className="absolute w-px h-px opacity-0 overflow-hidden -z-10"
           />
           <textarea
+            ref={reflectionTextareaRef}
             value={reflection}
             onChange={(e) => handleReflectionChange(e.target.value)}
             rows={4}
             placeholder="Your reflection…"
             className={`w-full rounded-lg border p-3 ${
-              reflection.length > maxLength ? "border-pink-deep" : "border-gray-200"
+              graphemeLength(reflection) > maxLength ? "border-pink-deep" : "border-gray-200"
             }`}
           />
-          <div className="flex justify-end mb-3">
+          <div className="flex justify-between items-center mb-3">
+            <EmojiPicker onSelect={handleEmojiInsert} />
             <span className={`text-xs tabular-nums ${
-              reflection.length > maxLength
+              graphemeLength(reflection) > maxLength
                 ? "text-pink-deep font-medium"
-                : reflection.length > maxLength * 0.9
+                : graphemeLength(reflection) > maxLength * 0.9
                 ? "text-amber-500"
                 : "text-gray-400"
             }`}>
-              {reflection.length} / {maxLength}
+              {graphemeLength(reflection)} / {maxLength}
             </span>
           </div>
           <div className="flex flex-wrap gap-x-6 gap-y-2 mb-4">
@@ -383,7 +411,7 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
           {error && <p className="text-pink-deep text-sm mb-3">{error}</p>}
           <button
             onClick={handleClaim}
-            disabled={submitting || reflection.length > maxLength}
+            disabled={submitting || graphemeLength(reflection) > maxLength}
             className="bg-pink-pale hover:bg-pink-dusty transition-colors text-pink-deep font-display px-6 py-3 rounded-xl2 disabled:opacity-50"
           >
             {submitting ? "Claiming…" : badge ? `Claim your ${badge.name}` : "Claim this chapter"}
@@ -483,23 +511,25 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
               className="absolute w-px h-px opacity-0 overflow-hidden -z-10"
             />
             <textarea
+              ref={extraReflectionTextareaRef}
               value={extraReflection}
               onChange={(e) => { setExtraReflection(e.target.value); setExtraError(null); }}
               rows={3}
               placeholder="Something else on your mind…"
               className={`w-full rounded-lg border p-3 mb-1 text-sm ${
-                extraReflection.length > maxLength ? "border-pink-deep" : "border-gray-200"
+                graphemeLength(extraReflection) > maxLength ? "border-pink-deep" : "border-gray-200"
               }`}
             />
-            <div className="flex justify-end mb-3">
+            <div className="flex justify-between items-center mb-3">
+              <EmojiPicker onSelect={handleExtraEmojiInsert} />
               <span className={`text-xs tabular-nums ${
-                extraReflection.length > maxLength
+                graphemeLength(extraReflection) > maxLength
                   ? "text-pink-deep font-medium"
-                  : extraReflection.length > maxLength * 0.9
+                  : graphemeLength(extraReflection) > maxLength * 0.9
                   ? "text-amber-500"
                   : "text-gray-400"
               }`}>
-                {extraReflection.length} / {maxLength}
+                {graphemeLength(extraReflection)} / {maxLength}
               </span>
             </div>
             <div className="flex flex-wrap gap-x-6 gap-y-2 mb-3">
@@ -528,7 +558,7 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
             {extraPosted && <p className="text-green-600 text-sm mb-3">Reflection shared!</p>}
             <button
               onClick={handleExtraReflection}
-              disabled={extraSubmitting || extraReflection.length > maxLength}
+              disabled={extraSubmitting || graphemeLength(extraReflection) > maxLength}
               className="bg-pink-pale hover:bg-pink-dusty transition-colors text-pink-deep text-sm px-5 py-2.5 rounded-xl2 disabled:opacity-50"
             >
               {extraSubmitting ? "Sharing…" : "Share"}

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { moderateReflection } from "@/lib/moderation";
 import { CONTACT_INFO_MESSAGE, HARMFUL_MESSAGE, productFeedbackMessage } from "@/lib/moderationMessages";
+import { graphemeLength } from "@/lib/text";
 
 const EDIT_LIMIT = 3;
 
@@ -71,9 +72,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     .single();
 
   const maxLength = (book?.gamification_config as GamConfig | null)?.reflection?.max_length ?? 350;
-  if (trimmed.length > maxLength) {
+  const textLength = graphemeLength(trimmed);
+  if (textLength > maxLength) {
     return NextResponse.json(
-      { error: `Reflection must be ${maxLength} characters or fewer (currently ${trimmed.length}).` },
+      { error: `Reflection must be ${maxLength} characters or fewer (currently ${textLength}).` },
       { status: 400 }
     );
   }

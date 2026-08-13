@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import EmojiPicker from "./EmojiPicker";
+import { graphemeLength, insertAtCursor } from "@/lib/text";
 
 const EDIT_LIMIT = 3;
 
@@ -134,6 +136,17 @@ export default function ReflectionActions({
   const [draft, setDraft] = useState(text);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const draftTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  function handleEmojiInsert(emoji: string) {
+    const { text: next, cursor } = insertAtCursor(draftTextareaRef.current, draft, emoji);
+    setDraft(next);
+    setError(null);
+    requestAnimationFrame(() => {
+      draftTextareaRef.current?.focus();
+      draftTextareaRef.current?.setSelectionRange(cursor, cursor);
+    });
+  }
 
   const editsRemaining = Math.max(0, EDIT_LIMIT - editCount);
   const canEdit = editsRemaining > 0;
@@ -194,8 +207,8 @@ export default function ReflectionActions({
       setError("Write something first.");
       return;
     }
-    if (draft.length > maxLength) {
-      setError(`Reflection must be ${maxLength} characters or fewer (currently ${draft.length}).`);
+    if (graphemeLength(draft) > maxLength) {
+      setError(`Reflection must be ${maxLength} characters or fewer (currently ${graphemeLength(draft)}).`);
       return;
     }
     setError(null);
@@ -260,6 +273,7 @@ export default function ReflectionActions({
           {editsRemaining} of {EDIT_LIMIT} edits remaining
         </p>
         <textarea
+          ref={draftTextareaRef}
           value={draft}
           onChange={(e) => {
             setDraft(e.target.value);
@@ -267,23 +281,24 @@ export default function ReflectionActions({
           }}
           rows={3}
           className={`w-full rounded-lg border p-2 text-sm ${
-            draft.length > maxLength ? "border-pink-deep" : "border-gray-200"
+            graphemeLength(draft) > maxLength ? "border-pink-deep" : "border-gray-200"
           }`}
         />
-        <div className="flex justify-end">
+        <div className="flex justify-between items-center">
+          <EmojiPicker onSelect={handleEmojiInsert} />
           <span
             className={`text-xs tabular-nums ${
-              draft.length > maxLength ? "text-pink-deep font-medium" : "text-gray-400"
+              graphemeLength(draft) > maxLength ? "text-pink-deep font-medium" : "text-gray-400"
             }`}
           >
-            {draft.length} / {maxLength}
+            {graphemeLength(draft)} / {maxLength}
           </span>
         </div>
         {error && <p className="text-xs text-pink-deep">{error}</p>}
         <div className="flex gap-2">
           <button
             onClick={handleSaveClick}
-            disabled={busy || draft.length > maxLength}
+            disabled={busy || graphemeLength(draft) > maxLength}
             className="text-xs bg-pink-pale hover:bg-pink-dusty text-pink-deep px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
           >
             {busy ? "Saving…" : "Save"}

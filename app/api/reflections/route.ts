@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { moderateReflection } from "@/lib/moderation";
 import { CONTACT_INFO_MESSAGE, HARMFUL_MESSAGE, productFeedbackMessage } from "@/lib/moderationMessages";
+import { graphemeLength } from "@/lib/text";
 
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
@@ -52,9 +53,10 @@ export async function POST(request: Request) {
     .single();
 
   const maxLength = (book?.gamification_config as GamConfig | null)?.reflection?.max_length ?? 350;
-  if (trimmed.length > maxLength) {
+  const textLength = graphemeLength(trimmed);
+  if (textLength > maxLength) {
     return NextResponse.json(
-      { error: `Reflection must be ${maxLength} characters or fewer (currently ${trimmed.length}).` },
+      { error: `Reflection must be ${maxLength} characters or fewer (currently ${textLength}).` },
       { status: 400 }
     );
   }
