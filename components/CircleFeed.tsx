@@ -1,11 +1,27 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import Avatar from "@/components/Avatar";
 import ReflectionActions from "@/components/ReflectionActions";
 import ShareButton from "@/components/ShareButton";
+import { COUNTRIES } from "@/lib/countries";
+
+const COUNTRY_NAMES = new Map(COUNTRIES.map((c) => [c.code, c.name]));
+
+// "2026-08" -- sortable and stable across locales, unlike a formatted
+// label. Local time, not UTC: a reflection posted late at night should
+// group under the month the reader who wrote it actually experienced.
+function dateKey(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function dateLabel(key: string): string {
+  const [year, month] = key.split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString("en", { month: "short", year: "numeric" });
+}
 
 type Author = {
   nickname: string | null;
@@ -106,6 +122,16 @@ export type ChapterRow = {
   milestone_label: string | null;
 };
 
+// PostgREST returns many-to-one joins as a single object, but this
+// normalizes defensively in case the shape ever comes back as an array.
+// Shared by the country filter's option derivation and the feed
+// rendering below, so the two can't drift into checking the shape
+// differently.
+function getAuthor(row: ReflectionRow): Author | null {
+  const raw = row.users;
+  return Array.isArray(raw) ? (raw[0] ?? null) : raw;
+}
+
 type Props = {
   reflections: ReflectionRow[];
   myReactionIds: string[];
@@ -120,6 +146,10 @@ type Props = {
   myPinnedIds: string[];
   chapters: ChapterRow[];
   currentUserId: string;
+  // Viewer's own profile country, for the Country filter's "Your Country"
+  // quick option. Null when unset -- that option simply doesn't render
+  // rather than showing disabled (see CircleFeed's filter bar below).
+  myCountryCode: string | null;
   maxLength: number;
   bookId: string;
 };
@@ -144,12 +174,21 @@ export default function CircleFeed({
   myPinnedIds,
   chapters,
   currentUserId,
+  myCountryCode,
   maxLength,
   bookId,
 }: Props) {
   const [reflections, setReflections] = useState<ReflectionRow[]>(initialReflections);
-  const [activeChapter, setActiveChapter] = useState<number | null>(null);
-  const [mineOnly, setMineOnly] = useState(false);
+  // Four independent filter dimensions that AND together, not a single
+  // selected-filter variable: "All"/"Mine" is just the author-scope
+  // dimension's two states, and Chapter/Country/Date each layer on top
+  // of it and each other (e.g. Mine + Chapter 3 + a specific month, all
+  // at once). "" is every dimension's "no filter" value, so plain
+  // <select> elements never need to juggle null.
+  const [authorScope, setAuthorScope] = useState<"all" | "mine">("all");
+  const [chapterFilter, setChapterFilter] = useState("");
+  const [countryFilter, setCountryFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
   const [reacted, setReacted] = useState<Set<string>>(new Set(myReactionIds));
   const [reported, setReported] = useState<Set<string>>(new Set(myReportedIds));
   const [rootedFor, setRootedFor] = useState<Set<string>>(new Set(myRootedForIds));
@@ -207,22 +246,48 @@ export default function CircleFeed({
   // printed directly rather than wrapped in another label.
   const milestoneByChapter = new Map(chapters.map((ch) => [ch.number, ch.milestone_label]));
 
-  let visible = activeChapter === null
-    ? reflections
-    : reflections.filter((r) => r.chapter_number === activeChapter);
+  // Filter option lists are derived from the full incoming reflections
+  // pool (already scoped server-side to is_hidden=false and an unlocked
+  // chapter, see app/circle/page.tsx), not from `visible` below --
+  // otherwise picking one filter would shrink what the OTHER dropdowns
+  // even offer, which reads as broken rather than helpful.
+  const countryOptions = useMemo(() => {
+    const codes = new Set<string>();
+    for (const r of reflections) {
+      const code = getAuthor(r)?.country_code;
+      if (code) codes.add(code);
+    }
+    // The viewer's own country already gets its own "Your Country" entry
+    // (see the <select> below), so it's excluded here to avoid listing
+    // the same country twice.
+    return [...codes]
+      .filter((code) => code !== myCountryCode)
+      .sort((a, b) => (COUNTRY_NAMES.get(a) ?? a).localeCompare(COUNTRY_NAMES.get(b) ?? b));
+  }, [reflections, myCountryCode]);
 
-  if (mineOnly) {
-    visible = visible.filter((r) => r.user_id === currentUserId);
-  }
+  const dateOptions = useMemo(() => {
+    const keys = new Set<string>();
+    for (const r of reflections) keys.add(dateKey(r.created_at));
+    return [...keys].sort().reverse(); // newest first, matching the feed's own default order
+  }, [reflections]);
 
-  function setChapterFilter(chapter: number | null) {
-    setActiveChapter(chapter);
-    setMineOnly(false);
-  }
+  // Four independent filters, ANDed by successive .filter() calls --
+  // deliberately not a single selected-filter variable, so e.g. Mine +
+  // Chapter 3 + a specific month can all narrow the same result at once.
+  let visible = reflections;
+  if (authorScope === "mine") visible = visible.filter((r) => r.user_id === currentUserId);
+  if (chapterFilter) visible = visible.filter((r) => r.chapter_number === Number(chapterFilter));
+  if (countryFilter) visible = visible.filter((r) => getAuthor(r)?.country_code === countryFilter);
+  if (dateFilter) visible = visible.filter((r) => dateKey(r.created_at) === dateFilter);
 
-  function toggleMine() {
-    setMineOnly((prev) => !prev);
-    if (!mineOnly) setActiveChapter(null);
+  const anyFilterActive =
+    authorScope === "mine" || !!chapterFilter || !!countryFilter || !!dateFilter;
+
+  function clearFilters() {
+    setAuthorScope("all");
+    setChapterFilter("");
+    setCountryFilter("");
+    setDateFilter("");
   }
 
   async function toggleReaction(reflectionId: string) {
@@ -301,63 +366,118 @@ export default function CircleFeed({
     });
   }
 
+  const selectClass = (active: boolean) =>
+    `text-sm border rounded-lg pl-3 pr-2 py-1.5 bg-white focus:outline-none focus:border-pink-dusty transition-colors ${
+      active ? "border-pink-dusty text-pink-deep" : "border-gray-200 text-ink"
+    }`;
+
   return (
     <div>
-      {/* Filter chips */}
+      {/* Filter bar: pills group and dropdowns group are two separate
+          flex children so pills always stay together on their own line
+          on mobile (flex-col) even though there'd technically be room
+          left over for a dropdown to tuck in beside them -- they only
+          become visually one row once the viewport is wide enough for
+          sm:flex-row to kick in, at which point the gap between the two
+          groups matches the gap within each so the seam is invisible. */}
       {chapters.length > 0 && (
-        <div className="flex gap-2 flex-wrap mb-8">
-          <button
-            onClick={() => setChapterFilter(null)}
-            className={`px-4 py-1.5 rounded-full text-sm transition-colors ${
-              activeChapter === null && !mineOnly
-                ? "bg-pink-deep text-white"
-                : "bg-pink-pale text-pink-deep hover:bg-pink-dusty hover:text-white"
-            }`}
-          >
-            All
-          </button>
-          <button
-            onClick={toggleMine}
-            className={`px-4 py-1.5 rounded-full text-sm transition-colors ${
-              mineOnly
-                ? "bg-plum text-white"
-                : "bg-pink-pale text-pink-deep hover:bg-pink-dusty hover:text-white"
-            }`}
-          >
-            Mine
-          </button>
-          {chapters.map((ch) => (
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center mb-8">
+          <div className="flex gap-2">
             <button
-              key={ch.number}
-              onClick={() => setChapterFilter(ch.number)}
+              onClick={() => setAuthorScope("all")}
               className={`px-4 py-1.5 rounded-full text-sm transition-colors ${
-                activeChapter === ch.number && !mineOnly
+                authorScope === "all"
                   ? "bg-pink-deep text-white"
                   : "bg-pink-pale text-pink-deep hover:bg-pink-dusty hover:text-white"
               }`}
             >
-              Ch.&nbsp;{ch.number}
+              All
             </button>
-          ))}
+            <button
+              onClick={() => setAuthorScope("mine")}
+              className={`px-4 py-1.5 rounded-full text-sm transition-colors ${
+                authorScope === "mine"
+                  ? "bg-plum text-white"
+                  : "bg-pink-pale text-pink-deep hover:bg-pink-dusty hover:text-white"
+              }`}
+            >
+              Mine
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={chapterFilter}
+              onChange={(e) => setChapterFilter(e.target.value)}
+              className={selectClass(!!chapterFilter)}
+              aria-label="Filter by chapter"
+            >
+              <option value="">All Chapters</option>
+              {chapters.map((ch) => (
+                <option key={ch.number} value={ch.number}>
+                  Chapter {ch.number}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={countryFilter}
+              onChange={(e) => setCountryFilter(e.target.value)}
+              className={selectClass(!!countryFilter)}
+              aria-label="Filter by country"
+            >
+              <option value="">All Countries</option>
+              {myCountryCode && (
+                <option value={myCountryCode}>
+                  Your Country ({COUNTRY_NAMES.get(myCountryCode) ?? myCountryCode})
+                </option>
+              )}
+              {countryOptions.map((code) => (
+                <option key={code} value={code}>
+                  {COUNTRY_NAMES.get(code) ?? code}
+                </option>
+              ))}
+            </select>
+
+            {dateOptions.length > 0 && (
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className={selectClass(!!dateFilter)}
+                aria-label="Filter by month"
+              >
+                <option value="">All Dates</option>
+                {dateOptions.map((key) => (
+                  <option key={key} value={key}>
+                    {dateLabel(key)}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
       )}
 
       {/* Feed */}
       {visible.length === 0 ? (
-        <p className="text-center text-gray-400 py-16 italic">
-          {mineOnly
-            ? "You haven't shared any reflections yet. Claim a chapter badge to share your first."
-            : activeChapter
-            ? "Nothing shared from this chapter yet. Yours could be the first."
-            : "The Circle is quiet for now. Reflections appear here when readers choose to share after claiming a badge."}
-        </p>
+        <div className="text-center py-16">
+          <p className="text-gray-400 italic mb-3">
+            {anyFilterActive
+              ? authorScope === "mine" && !chapterFilter && !countryFilter && !dateFilter
+                ? "You haven't shared any reflections yet. Claim a chapter badge to share your first."
+                : "Nothing matches these filters yet."
+              : "The Circle is quiet for now. Reflections appear here when readers choose to share after claiming a badge."}
+          </p>
+          {anyFilterActive && (
+            <button onClick={clearFilters} className="text-sm text-pink-deep hover:underline">
+              Clear filters
+            </button>
+          )}
+        </div>
       ) : (
         <div className="space-y-4">
           {visible.map((r) => {
-            // PostgREST returns many-to-one joins as a single object, but
-            // normalize defensively in case the shape ever comes back as an array.
-            const authorRaw = r.users;
-            const author = Array.isArray(authorRaw) ? (authorRaw[0] ?? null) : authorRaw;
+            const author = getAuthor(r);
             const hasReacted = reacted.has(r.id);
             const count = heartCounts[r.id] ?? 0;
             const authorName = author?.nickname ?? author?.display_name ?? "Someone";

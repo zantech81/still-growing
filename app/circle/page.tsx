@@ -98,7 +98,7 @@ export default async function CirclePage({
 
   const currentChapter = userBook?.current_chapter ?? 1;
 
-  const [{ data: rawReflections }, { data: rawChapters }] = await Promise.all([
+  const [{ data: rawReflections }, { data: rawChapters }, { data: myProfile }] = await Promise.all([
     supabase
       .from("reflections")
       .select(
@@ -115,6 +115,11 @@ export default async function CirclePage({
       .eq("book_id", book.id)
       .lte("number", currentChapter)
       .order("number"),
+    // Own country_code only, for the filter bar's "Your Country" quick
+    // option (components/CircleFeed.tsx) -- not fetched from
+    // public_profiles like other authors' data below, since RLS already
+    // lets a user read their own full row directly.
+    supabase.from("users").select("country_code").eq("id", user.id).maybeSingle(),
   ]);
 
   // Author display data no longer comes from an embedded users(...) join:
@@ -200,6 +205,7 @@ export default async function CirclePage({
           myPinnedIds={myPinnedIds}
           chapters={chapters}
           currentUserId={user.id}
+          myCountryCode={myProfile?.country_code ?? null}
           maxLength={maxLength}
           bookId={book.id}
         />
