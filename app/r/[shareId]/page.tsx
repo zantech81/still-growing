@@ -146,6 +146,8 @@ export default async function ShareLandingPage({ params }: { params: { shareId: 
           narrower (a nested max-w-sm column vs. this max-w-2xl outer
           one) so the width contrast itself signals "supporting act,"
           not just font size. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/brand/logo-page-header.png" alt="Still Growing" className="h-10 w-auto mx-auto mb-6" />
       <p className="text-center text-sm text-pink-deep italic mb-8">{framingLine(share.type)}</p>
 
       {share.type === "growing_tree" ? (

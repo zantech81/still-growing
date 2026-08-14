@@ -7,6 +7,8 @@ import Link from "next/link";
 export default function HomePage() {
   return (
     <main className="max-w-xl mx-auto px-6 py-20 text-center">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/brand/logo-page-header.png" alt="Still Growing" className="h-14 w-auto mx-auto mb-8" />
       <h1 className="text-4xl mb-2">Your Journey Continues</h1>
       <p className="italic text-pink-deep mb-8">Where the badges become real</p>
 

@@ -22,7 +22,8 @@ export default async function OnboardingPage() {
   return (
     <div className="min-h-screen flex items-start justify-center px-5 py-16">
       <div className="w-full max-w-md">
-        <p className="text-xs uppercase tracking-widest text-pink-deep mb-3">Still Growing</p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/logo-page-header.png" alt="Still Growing" className="h-10 w-auto mb-6" />
         <h1 className="font-display text-4xl text-plum mb-2">Before we begin</h1>
         <p className="text-gray-400 mb-10 text-sm">
           Choose a nickname for the Circle, the space where readers share reflections.
