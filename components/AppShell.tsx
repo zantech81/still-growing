@@ -22,7 +22,7 @@ export default async function AppShell({ children, requireNickname = true }: Pro
     await Promise.all([
       supabase
         .from("users")
-        .select("display_name, nickname, avatar_color, is_admin, birth_month, birth_day")
+        .select("display_name, nickname, avatar_color, avatar_key, country_code, is_admin, birth_month, birth_day")
         .eq("id", user.id)
         .single(),
       supabase
@@ -61,7 +61,6 @@ export default async function AppShell({ children, requireNickname = true }: Pro
   // for any current user.
   const journeyHref = (unlockedBookCount ?? 0) >= 2 ? "/journey" : bookSlug ? `/${bookSlug}` : "/library";
   const displayName = profile?.nickname ?? profile?.display_name ?? user.email ?? "?";
-  const initial = displayName[0].toUpperCase();
   const avatarColor = profile?.avatar_color ?? "#E8A0B8";
   const hasUnread = (unreadCount ?? 0) > 0;
   const isAdmin = profile?.is_admin ?? false;
@@ -78,7 +77,9 @@ export default async function AppShell({ children, requireNickname = true }: Pro
   return (
     <>
       <AppNav
-        initial={initial}
+        name={displayName}
+        avatarKey={profile?.avatar_key ?? null}
+        countryCode={profile?.country_code ?? null}
         avatarColor={avatarColor}
         hasUnread={hasUnread}
         journeyHref={journeyHref}

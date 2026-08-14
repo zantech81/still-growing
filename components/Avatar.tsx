@@ -22,6 +22,21 @@ export default function Avatar({ avatarKey, countryCode, avatarColor, name, size
   const avatar = avatarKey ? AVATAR_MAP.get(avatarKey) : null;
 
   if (avatar) {
+    // Real illustrated art when this option has one (see lib/avatars.ts);
+    // "plum"/"ink" don't yet, so they fall through to the original
+    // emoji-on-color rendering below unchanged.
+    if (avatar.image) {
+      return (
+        <div
+          className={`rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center ${className ?? ""}`}
+          style={{ width: size, height: size, backgroundColor: avatar.color }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={avatar.image} alt={avatar.label} className="w-full h-full object-cover" />
+        </div>
+      );
+    }
+
     return (
       <div
         role="img"

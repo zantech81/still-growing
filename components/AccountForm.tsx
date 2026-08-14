@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/countries";
-import { NATURE_AVATARS, BABY_AVATARS } from "@/lib/avatars";
+import { AVATARS } from "@/lib/avatars";
 import FlagImg from "@/components/FlagImg";
 import Avatar from "@/components/Avatar";
 
@@ -149,36 +149,20 @@ export default function AccountForm({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {NATURE_AVATARS.map((a) => (
+          {AVATARS.map((a) => (
             <button
               key={a.key}
               type="button"
               onClick={() => setAvatar(avatar === a.key ? "" : a.key)}
               aria-label={a.label}
               aria-pressed={avatar === a.key}
-              className={`w-11 h-11 rounded-full flex items-center justify-center text-lg transition-shadow ${
+              className={`w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-lg transition-shadow ${
                 avatar === a.key ? "ring-2 ring-offset-2 ring-pink-deep" : ""
               }`}
               style={{ backgroundColor: a.color }}
             >
-              {a.emoji}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-2 mt-2">
-          {BABY_AVATARS.map((a) => (
-            <button
-              key={a.key}
-              type="button"
-              onClick={() => setAvatar(avatar === a.key ? "" : a.key)}
-              aria-label={a.label}
-              aria-pressed={avatar === a.key}
-              className={`w-11 h-11 rounded-full flex items-center justify-center text-lg transition-shadow ${
-                avatar === a.key ? "ring-2 ring-offset-2 ring-pink-deep" : ""
-              }`}
-              style={{ backgroundColor: a.color }}
-            >
-              {a.emoji}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {a.image ? <img src={a.image} alt="" className="w-full h-full object-cover" /> : a.emoji}
             </button>
           ))}
         </div>

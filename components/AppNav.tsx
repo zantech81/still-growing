@@ -5,9 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import NotificationPanel from "@/components/NotificationPanel";
 import CircleUnreadCount from "@/components/CircleUnreadCount";
+import Avatar from "@/components/Avatar";
 
 type Props = {
-  initial: string;
+  name: string;
+  avatarKey: string | null;
+  countryCode: string | null;
   avatarColor: string;
   hasUnread: boolean;
   journeyHref: string;
@@ -105,7 +108,7 @@ function pillClass(label: keyof typeof COMMUNITY_TAB_COLORS, isActive: boolean):
   return `font-semibold rounded-full transition-colors ${isActive ? `${c.solid} text-white` : `${c.soft} ${c.softText}`}`;
 }
 
-export default function AppNav({ initial, avatarColor, hasUnread, journeyHref, isAdmin, currentUserId }: Props) {
+export default function AppNav({ name, avatarKey, countryCode, avatarColor, hasUnread, journeyHref, isAdmin, currentUserId }: Props) {
   const pathname = usePathname();
   const [showPanel, setShowPanel] = useState(false);
   const [showDot, setShowDot] = useState(hasUnread);
@@ -211,11 +214,10 @@ export default function AppNav({ initial, avatarColor, hasUnread, journeyHref, i
             {/* Avatar */}
             <Link
               href="/account"
-              className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-[13px] font-semibold text-white leading-none"
-              style={{ backgroundColor: avatarColor }}
+              className="flex-shrink-0 hover:opacity-80 transition-opacity"
               aria-label="Account"
             >
-              {initial}
+              <Avatar avatarKey={avatarKey} countryCode={countryCode} avatarColor={avatarColor} name={name} size={32} />
             </Link>
           </div>
         </div>
