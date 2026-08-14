@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadOgFonts } from "@/lib/og/fonts";
+import { loadOgBadgeIcon } from "@/lib/og/badge";
 import { profileCardTree } from "@/lib/og/renderShareImage";
 import { getUnifiedConnectionCount } from "@/lib/connections";
 
@@ -50,7 +51,7 @@ export async function GET(request: Request, { params }: { params: { userId: stri
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? origin).replace(/^https?:\/\//, "");
   const shareUrl = `${siteUrl}/u/${profile.id}`;
 
-  const fonts = await loadOgFonts(origin);
+  const [fonts, badgeSrc] = await Promise.all([loadOgFonts(origin), loadOgBadgeIcon(origin)]);
 
   return new ImageResponse(
     profileCardTree({
@@ -64,6 +65,7 @@ export async function GET(request: Request, { params }: { params: { userId: stri
       bookTitle,
       seed: profile.id,
       shareUrl,
+      badgeSrc,
     }),
     { width: 1200, height: 630, fonts }
   );

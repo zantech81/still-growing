@@ -36,21 +36,15 @@ function firstSentence(text: string, max: number): string {
   return truncate(sentence, max);
 }
 
-function Branding({ shareUrl }: { shareUrl: string }) {
+// badgeSrc is a data URI (see lib/og/badge.ts's loadOgBadgeIcon), fetched
+// once per request by the route handler and threaded down through every
+// *CardTree function below rather than fetched here -- Branding itself
+// stays a plain sync component, same as the rest of this file.
+function Branding({ shareUrl, badgeSrc }: { shareUrl: string; badgeSrc: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-      <div
-        style={{
-          fontFamily: "Nunito",
-          fontWeight: 700,
-          fontSize: 22,
-          color: COLORS.pinkDeep,
-          letterSpacing: 2,
-          textTransform: "uppercase",
-        }}
-      >
-        Still Growing
-      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={badgeSrc} width={40} height={40} style={{ objectFit: "contain" }} />
       <div
         style={{
           display: "flex",
@@ -73,11 +67,13 @@ export function badgeCardTree({
   badgeDescription,
   badgeImageUrl,
   shareUrl,
+  badgeSrc,
 }: {
   badgeName: string;
   badgeDescription: string | null;
   badgeImageUrl: string | null;
   shareUrl: string;
+  badgeSrc: string;
 }) {
   return (
     <div
@@ -163,7 +159,7 @@ export function badgeCardTree({
         )}
       </div>
 
-      <Branding shareUrl={shareUrl} />
+      <Branding shareUrl={shareUrl} badgeSrc={badgeSrc} />
     </div>
   );
 }
@@ -173,11 +169,13 @@ export function progressCardTree({
   badgesEarned,
   totalChapters,
   shareUrl,
+  badgeSrc,
 }: {
   bookTitle: string;
   badgesEarned: number;
   totalChapters: number;
   shareUrl: string;
+  badgeSrc: string;
 }) {
   const dots = Array.from({ length: totalChapters }, (_, i) => i < badgesEarned);
 
@@ -264,7 +262,7 @@ export function progressCardTree({
         </div>
       </div>
 
-      <Branding shareUrl={shareUrl} />
+      <Branding shareUrl={shareUrl} badgeSrc={badgeSrc} />
     </div>
   );
 }
@@ -275,12 +273,14 @@ export function reflectionCardTree({
   chapterNumber,
   milestoneLabel,
   shareUrl,
+  badgeSrc,
 }: {
   text: string;
   authorName: string;
   chapterNumber: number;
   milestoneLabel: string | null;
   shareUrl: string;
+  badgeSrc: string;
 }) {
   return (
     <div
@@ -348,7 +348,7 @@ export function reflectionCardTree({
         </div>
       </div>
 
-      <Branding shareUrl={shareUrl} />
+      <Branding shareUrl={shareUrl} badgeSrc={badgeSrc} />
     </div>
   );
 }
@@ -458,11 +458,13 @@ export function growingTreeCardTree({
   connectionCount,
   seed,
   shareUrl,
+  badgeSrc,
 }: {
   authorName: string;
   connectionCount: number;
   seed: string;
   shareUrl: string;
+  badgeSrc: string;
 }) {
   const geometry = generateTreeGeometry(hashSeed(seed));
   const overflowing = connectionCount > LEAF_DISPLAY_CAP;
@@ -558,7 +560,7 @@ export function growingTreeCardTree({
             ))}
       </svg>
 
-      <Branding shareUrl={shareUrl} />
+      <Branding shareUrl={shareUrl} badgeSrc={badgeSrc} />
     </div>
   );
 }
@@ -582,6 +584,7 @@ export function profileCardTree({
   bookTitle,
   seed,
   shareUrl,
+  badgeSrc,
 }: {
   name: string;
   avatarKey: string | null;
@@ -593,6 +596,7 @@ export function profileCardTree({
   bookTitle: string;
   seed: string;
   shareUrl: string;
+  badgeSrc: string;
 }) {
   const geometry = generateTreeGeometry(hashSeed(seed));
   const overflowing = connectionCount > LEAF_DISPLAY_CAP;
@@ -682,7 +686,7 @@ export function profileCardTree({
         </div>
       </div>
 
-      <Branding shareUrl={shareUrl} />
+      <Branding shareUrl={shareUrl} badgeSrc={badgeSrc} />
     </div>
   );
 }

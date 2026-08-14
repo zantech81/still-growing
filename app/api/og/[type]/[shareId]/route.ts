@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadOgFonts } from "@/lib/og/fonts";
+import { loadOgBadgeIcon } from "@/lib/og/badge";
 import { badgeCardTree, progressCardTree, reflectionCardTree, growingTreeCardTree } from "@/lib/og/renderShareImage";
 import { getUnifiedConnectionCount } from "@/lib/connections";
 
@@ -39,7 +40,7 @@ export async function GET(
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? origin).replace(/^https?:\/\//, "");
   const shareUrl = `${siteUrl}/r/${share.id}`;
 
-  const fonts = await loadOgFonts(origin);
+  const [fonts, badgeSrc] = await Promise.all([loadOgFonts(origin), loadOgBadgeIcon(origin)]);
 
   if (share.type === "badge") {
     const { data: badge } = await admin
@@ -56,6 +57,7 @@ export async function GET(
         badgeDescription: badge.description,
         badgeImageUrl: badge.badge_image_url,
         shareUrl,
+        badgeSrc,
       }),
       { width: 1200, height: 630, fonts }
     );
@@ -79,6 +81,7 @@ export async function GET(
         badgesEarned: userBook?.badges_earned ?? 0,
         totalChapters: totalChapters ?? 0,
         shareUrl,
+        badgeSrc,
       }),
       { width: 1200, height: 630, fonts }
     );
@@ -96,6 +99,7 @@ export async function GET(
         connectionCount,
         seed: share.user_id,
         shareUrl,
+        badgeSrc,
       }),
       { width: 1200, height: 630, fonts }
     );
@@ -128,6 +132,7 @@ export async function GET(
       // surface that shows it.
       milestoneLabel: chapter?.milestone_label ?? null,
       shareUrl,
+      badgeSrc,
     }),
     { width: 1200, height: 630, fonts }
   );

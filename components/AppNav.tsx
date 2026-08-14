@@ -155,7 +155,9 @@ export default function AppNav({ name, avatarKey, countryCode, avatarColor, hasU
       <header className="fixed top-0 inset-x-0 z-30 h-14 bg-cream/95 backdrop-blur-sm border-b border-pink-pale">
         <div className="max-w-2xl mx-auto h-full px-5 flex items-center justify-between">
           {/* Logo */}
-          <Link href="/library" className="font-display italic text-[1.25rem] text-pink-deep leading-none select-none">
+          <Link href="/library" className="flex items-center gap-2 font-display italic text-[1.25rem] text-pink-deep leading-none select-none">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/nav-icon.png" alt="" className="h-9 w-9 object-contain" />
             Still <span className="not-italic text-plum">Growing</span>
           </Link>
 

@@ -70,7 +70,7 @@ const wrap = (body: string) => `<!DOCTYPE html>
     <tr><td align="center">
       <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;padding:40px;border:1px solid #F7E1E9;">
         <tr><td>
-          <p style="margin:0 0 32px;font-family:Georgia,serif;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#C76A8A;">Still Growing</p>
+          <img src="${siteUrl}/brand/logo-email.png" width="220" height="57" alt="Still Growing" style="display:block;margin:0 0 32px;border:0;" />
           ${body}
           <p style="margin:40px 0 0;font-size:12px;color:#b0b0b0;font-family:sans-serif;">
             You're receiving this because you have an account at <a href="${siteUrl}" style="color:#C76A8A;">stillgrowing.co</a>.
