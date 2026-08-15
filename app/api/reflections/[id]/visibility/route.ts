@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveChapterPasswords, moderateReflection } from "@/lib/moderation";
+import { getActiveChapterPasswords, logSelfHarmFlag, moderateReflection } from "@/lib/moderation";
 import {
   CHAPTER_PASSWORD_MESSAGE,
   CONTACT_INFO_MESSAGE,
   HARMFUL_MESSAGE,
   SPAM_MESSAGE,
   productFeedbackMessage,
+  selfHarmMessage,
 } from "@/lib/moderationMessages";
 
 // Visibility-only toggle for a reflection's own author: "Share to Circle"
@@ -35,7 +36,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   const { data: existing } = await supabase
     .from("reflections")
-    .select("id, user_id, text, is_hidden, flag_reason")
+    .select("id, user_id, book_id, chapter_id, text, is_hidden, flag_reason")
     .eq("id", params.id)
     .maybeSingle();
 
@@ -73,6 +74,15 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     }
     if (verdict.type === "blocked_password") {
       return NextResponse.json({ error: CHAPTER_PASSWORD_MESSAGE, code: "chapter_password" }, { status: 400 });
+    }
+    if (verdict.type === "blocked_self_harm") {
+      await logSelfHarmFlag(supabase, {
+        userId: user.id,
+        bookId: existing.book_id,
+        chapterId: existing.chapter_id,
+        flaggedText: existing.text,
+      });
+      return NextResponse.json({ error: selfHarmMessage(), code: "self_harm" }, { status: 400 });
     }
     if (verdict.type === "blocked_harmful") {
       return NextResponse.json({ error: HARMFUL_MESSAGE, code: "harmful" }, { status: 400 });

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveChapterPasswords, moderateReflection } from "@/lib/moderation";
-import { CHAPTER_PASSWORD_MESSAGE, CONTACT_INFO_MESSAGE, HARMFUL_MESSAGE, productFeedbackMessage } from "@/lib/moderationMessages";
+import { getActiveChapterPasswords, logSelfHarmFlag, moderateReflection } from "@/lib/moderation";
+import { CHAPTER_PASSWORD_MESSAGE, CONTACT_INFO_MESSAGE, HARMFUL_MESSAGE, productFeedbackMessage, selfHarmMessage } from "@/lib/moderationMessages";
 import { graphemeLength } from "@/lib/text";
 
 const RATE_LIMIT_MAX = 5;
@@ -104,6 +104,10 @@ export async function POST(request: Request) {
   }
   if (verdict.type === "blocked_password") {
     return NextResponse.json({ error: CHAPTER_PASSWORD_MESSAGE, code: "chapter_password" }, { status: 400 });
+  }
+  if (verdict.type === "blocked_self_harm") {
+    await logSelfHarmFlag(supabase, { userId: user.id, bookId: book_id, chapterId: chapter_id, flaggedText: trimmed });
+    return NextResponse.json({ error: selfHarmMessage(), code: "self_harm" }, { status: 400 });
   }
   if (verdict.type === "blocked_harmful") {
     return NextResponse.json({ error: HARMFUL_MESSAGE, code: "harmful" }, { status: 400 });

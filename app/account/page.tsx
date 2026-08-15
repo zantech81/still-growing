@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AppShell from "@/components/AppShell";
 import AccountForm from "@/components/AccountForm";
@@ -32,6 +33,15 @@ export default async function AccountPage() {
           avatarColor={profile?.avatar_color ?? "#E8A0B8"}
         />
         <div className="mt-12 pt-8 border-t border-pink-pale">
+          <Link
+            href="/account/review"
+            className="block bg-white border border-pink-pale hover:border-pink-dusty rounded-xl2 p-4 transition-colors mb-8"
+          >
+            <p className="font-medium text-plum mb-0.5">Leave a review</p>
+            <p className="text-sm text-gray-400">
+              Enjoying Still Growing? Share what it's meant to you.
+            </p>
+          </Link>
           <SignOutButton />
         </div>
       </main>

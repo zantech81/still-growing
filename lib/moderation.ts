@@ -176,6 +176,68 @@ export async function getActiveChapterPasswords(
   return (data ?? []).map((row) => row.unlock_code).filter((code): code is string => !!code);
 }
 
+// ── Self-harm ─────────────────────────────────────────────────────────────────
+// Deliberately phrase-focused rather than single-word (a bare "suicide" or
+// "self-harm" mention still gets caught via the single-word branch of
+// matchesBlocklist below, but most entries here are multi-word so they
+// don't also fire on unrelated academic/clinical usage of a single word
+// out of context). Matched against normalizeText() output, same as
+// PROFANITY_BLOCKLIST -- this needs the same leetspeak/obfuscation
+// resistance as any other blocklist here, not the chapter-password
+// section's separate digit-preserving normalization.
+const SELF_HARM_BLOCKLIST = buildBlocklist([
+  "kill myself",
+  "killing myself",
+  "end my life",
+  "ending my life",
+  "end it all",
+  "want to die",
+  "wanted to die",
+  "wish i was dead",
+  "wish i were dead",
+  "suicidal",
+  "suicide",
+  "self harm",
+  "self-harm",
+  "hurting myself",
+  "hurt myself",
+  "cutting myself",
+  "not worth living",
+  "no reason to live",
+  "no point in living",
+  "better off dead",
+  "better off without me",
+  "want to end it",
+  "ending it all",
+]);
+
+// Logs what was written so an admin can follow up directly (see
+// supabase/migrations/0043_self_harm_flags.sql), used by every call site
+// that can produce a blocked_self_harm verdict: reflection create/edit/
+// visibility-toggle and the reviews route. Awaited (not truly detached)
+// so the row reliably lands before a serverless function's execution
+// context can be frozen/recycled after the response returns -- but
+// wrapped so an insert failure can never throw, block, or change the
+// compassionate response the caller shows regardless of outcome.
+export async function logSelfHarmFlag(
+  supabase: ReturnType<typeof createClient>,
+  params: { userId: string; bookId: string | null; chapterId: string | null; flaggedText: string }
+): Promise<void> {
+  try {
+    const { error } = await supabase.from("self_harm_flags").insert({
+      user_id: params.userId,
+      book_id: params.bookId,
+      chapter_id: params.chapterId,
+      flagged_text: params.flaggedText,
+    });
+    if (error) {
+      console.error("[moderation] Failed to log self-harm flag:", error);
+    }
+  } catch (err) {
+    console.error("[moderation] Unexpected error logging self-harm flag:", err);
+  }
+}
+
 // ── Spam (soft signal, not a hard block) ────────────────────────────────────
 const PROMO_PHRASES = ["dm me", "check out my", "discount code", "click here", "link in bio"];
 
@@ -205,12 +267,14 @@ export type ModerationVerdict =
   | { type: "blocked_contact" }
   | { type: "blocked_harmful" }
   | { type: "blocked_product" }
-  | { type: "blocked_password" };
+  | { type: "blocked_password" }
+  | { type: "blocked_self_harm" };
 
-// Note: this deliberately does NOT check tone/sentiment. Words like "failed",
-// "afraid", "no", "hurt", "broken" are never flagged. Only profanity/hate,
-// the specific product-harm list above, contact info/links, and chapter
-// passwords are filtered.
+// Note: this deliberately does NOT check tone/sentiment broadly. Words like
+// "failed", "afraid", "no", "hurt", "broken" are never flagged on their
+// own. Only profanity/hate, the specific product-harm list above, contact
+// info/links, chapter passwords, and the specific self-harm phrases below
+// are filtered.
 //
 // chapterPasswords is caller-supplied (via getActiveChapterPasswords) rather
 // than fetched in here, so this function stays a pure, synchronous,
@@ -225,6 +289,10 @@ export function moderateReflection(rawText: string, chapterPasswords: string[] =
 
   const normalized = normalizeText(rawText);
 
+  // Checked before profanity so self-harm language wins over any
+  // simultaneous profanity match -- the compassionate response matters
+  // more here than the generic "keep this space kind" one.
+  if (matchesBlocklist(normalized, SELF_HARM_BLOCKLIST)) return { type: "blocked_self_harm" };
   if (matchesBlocklist(normalized, PROFANITY_BLOCKLIST)) return { type: "blocked_harmful" };
   if (matchesBlocklist(normalized, PRODUCT_HARM_BLOCKLIST)) return { type: "blocked_product" };
   if (looksLikeSpam(rawText)) return { type: "spam" };

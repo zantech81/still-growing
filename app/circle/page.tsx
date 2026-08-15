@@ -195,6 +195,11 @@ export default async function CirclePage({
             reply, message, or reach you here, making this a safe space to
             write exactly what's true.
           </p>
+          <p className="text-xs text-gray-400 italic leading-relaxed mt-2">
+            This is separate from a review. What you write in the Circle stays
+            here, never used for marketing. If you'd like to help others find
+            this book instead, you can leave a review from your Account page.
+          </p>
         </div>
 
         <CircleFeed

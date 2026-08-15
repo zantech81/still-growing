@@ -14,4 +14,14 @@ export const RESERVED_SLUGS = new Set([
   "onboarding",  // Profile completion gate
   "r",           // Public share landing pages (/r/[shareId])
   "u",           // Public profile pages (/u/[userId])
+  "reviews",     // Public reviews page (app/reviews/page.tsx) -- without
+                 // this, middleware.ts's isJourneyRoute check would treat
+                 // it as an unrecognized book slug and force a login
+                 // redirect, breaking the page's "no auth required" ask.
+  "embeds",      // public/embeds/* static assets (e.g. reviews-widget.js).
+                 // Not actually at risk of the same middleware bug (that
+                 // check only ever matches a bare single-segment path with
+                 // no further slash/extension, and every real request here
+                 // is /embeds/<file>.js), reserved purely so a future book
+                 // slug can't collide with this static-asset namespace.
 ]);

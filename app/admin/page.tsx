@@ -45,6 +45,8 @@ export default async function AdminDashboard() {
         <QuickLink href="/admin/books" title="Books" description="Create and publish books, manage chapters and badges." />
         <QuickLink href="/admin/members" title="Members" description="See who has joined and their progress." />
         <QuickLink href="/admin/circle" title="Circle" description="Moderate reader reflections." />
+        <QuickLink href="/admin/self-harm" title="Wellbeing" description="Review flagged self-harm language and follow up." />
+        <QuickLink href="/admin/reviews" title="Reviews" description="Approve, reject, and feature reader reviews." />
       </div>
 
       {(booksByStatus.draft ?? 0) > 0 && (

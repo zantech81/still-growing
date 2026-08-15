@@ -15,3 +15,12 @@ export function productFeedbackMessage(): string {
   const supportEmail = process.env.SUPPORT_EMAIL ?? "support@stillgrowing.co";
   return `This sounds like feedback about Still Growing itself rather than a reflection on this chapter. We'd love to hear it. Email us at ${supportEmail}.`;
 }
+
+// Deliberately not accusatory ("we couldn't post this" states a plain
+// fact, not a judgment) and always pairs the "why" with somewhere real to
+// go: an international crisis-line directory plus a direct human email,
+// so this is never just a dead end.
+export function selfHarmMessage(): string {
+  const supportEmail = process.env.SUPPORT_EMAIL ?? "support@stillgrowing.co";
+  return `We couldn't post this. The Circle needs to stay a safe space for everyone here. But we want you to know: your life is valuable, and you don't have to carry this alone. Befrienders Worldwide (befrienders.org) can connect you with a crisis line in your country, any time, or you can email us directly at ${supportEmail}. We're glad you're here.`;
+}
