@@ -1,4 +1,8 @@
-const SENDGRID_URL = "https://api.sendgrid.com/v3/mail/send";
+// NOTE: file kept as lib/sendgrid.ts (not renamed) so the two existing
+// import sites (lib/notifications.ts, app/api/cron/birthdays/route.ts)
+// don't need to change. The actual provider is Resend as of 2026-08-18 —
+// see the "Still Growing" project's Resend/Namecheap DNS setup notes.
+const RESEND_URL = "https://api.resend.com/emails";
 const FROM_EMAIL = "hello@stillgrowing.co";
 const FROM_NAME = "Still Growing";
 const TIMEOUT_MS = 5_000;
@@ -10,12 +14,12 @@ export interface MailOptions {
   html: string;
 }
 
-// Returns true if the email was accepted by SendGrid (202), false otherwise.
+// Returns true if the email was accepted by Resend (2xx), false otherwise.
 // Never throws. Errors are logged and the caller can check the return value.
 export async function sendEmail({ to, subject, text, html }: MailOptions): Promise<boolean> {
-  const apiKey = process.env.SENDGRID_API_KEY;
+  const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    console.warn("[sendgrid] SENDGRID_API_KEY not set, skipping email to:", to);
+    console.warn("[resend] RESEND_API_KEY not set, skipping email to:", to);
     return false;
   }
 
@@ -23,7 +27,7 @@ export async function sendEmail({ to, subject, text, html }: MailOptions): Promi
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    const res = await fetch(SENDGRID_URL, {
+    const res = await fetch(RESEND_URL, {
       method: "POST",
       signal: controller.signal,
       headers: {
@@ -31,26 +35,24 @@ export async function sendEmail({ to, subject, text, html }: MailOptions): Promi
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        personalizations: [{ to: [{ email: to }] }],
-        from: { email: FROM_EMAIL, name: FROM_NAME },
+        from: `${FROM_NAME} <${FROM_EMAIL}>`,
+        to: [to],
         subject,
-        content: [
-          { type: "text/plain", value: text },
-          { type: "text/html", value: html },
-        ],
+        text,
+        html,
       }),
     });
 
-    if (res.status === 202) return true;
+    if (res.ok) return true;
 
     const errBody = await res.text().catch(() => "(unreadable)");
-    console.error(`[sendgrid] Send to ${to} failed ${res.status}: ${errBody}`);
+    console.error(`[resend] Send to ${to} failed ${res.status}: ${errBody}`);
     return false;
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      console.error(`[sendgrid] Send to ${to} timed out after 5 s`);
+      console.error(`[resend] Send to ${to} timed out after 5 s`);
     } else {
-      console.error(`[sendgrid] Unexpected error sending to ${to}:`, err);
+      console.error(`[resend] Unexpected error sending to ${to}:`, err);
     }
     return false;
   } finally {
