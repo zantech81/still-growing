@@ -131,6 +131,23 @@ export default function LockedBookCard({
             {status === "error" && errorMsg && (
               <p className="text-sm text-pink-deep">{errorMsg}</p>
             )}
+            {status !== "unlocked" && (
+              <p className="text-xs text-gray-400 leading-snug">
+                Tip: sign in with the same email you purchased with.{" "}
+                {/* Hardcoded rather than read from SUPPORT_EMAIL -- this is a
+                    client component ("use client" above), so it can't read
+                    that server-only env var. Matches the same fallback
+                    default already used server-side when SUPPORT_EMAIL isn't
+                    set (see lib/moderationMessages.ts). */}
+                <a
+                  href="mailto:support@stillgrowing.co"
+                  className="underline hover:text-pink-deep transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Trouble unlocking?
+                </a>
+              </p>
+            )}
           </form>
         )}
       </div>

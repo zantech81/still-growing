@@ -5,6 +5,8 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getGrowingTreeExtra, getSharedReflectionCount } from "@/lib/connections";
+import { isVerifiedBuyer } from "@/lib/purchases";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import AppShell from "@/components/AppShell";
 import GrowingTree from "@/components/GrowingTree";
 import GrowingTreeStats from "@/components/GrowingTreeStats";
@@ -119,7 +121,22 @@ export default async function ProfilePage({ params }: { params: { userId: string
         .limit(1)
         .maybeSingle();
 
-  const [growingTreeExtra, sharedReflectionCount, { data: userBooks }, { data: earnedBadges }, { data: pins }] =
+  // Verified-buyer badge: looked up via the admin client because the
+  // email itself has to come from public.users (never exposed through
+  // public_profiles -- that view is a deliberately safe column subset,
+  // see 0033_users_rls_column_scoping.sql / 0036_avatar_key.sql), and a
+  // signed-out or other-user viewer has no RLS access to another
+  // account's email at all. The email is only ever used here, server-side,
+  // to derive the boolean below -- it's never sent to the client or
+  // rendered anywhere on this public page. See lib/purchases.ts for why
+  // this is a live check rather than a stored flag.
+  const emailLookup = createAdminClient()
+    .from("users")
+    .select("email")
+    .eq("id", params.userId)
+    .maybeSingle();
+
+  const [growingTreeExtra, sharedReflectionCount, { data: userBooks }, { data: earnedBadges }, { data: pins }, { data: emailRow }] =
     await Promise.all([
       getGrowingTreeExtra(supabase, params.userId),
       getSharedReflectionCount(supabase, params.userId),
@@ -136,8 +153,10 @@ export default async function ProfilePage({ params }: { params: { userId: string
         .select("reflection_id")
         .eq("user_id", params.userId)
         .order("display_order", { ascending: true }),
+      emailLookup,
     ]);
   const connectionCount = growingTreeExtra.connectionCount;
+  const verifiedBuyer = await isVerifiedBuyer(emailRow?.email as string | undefined);
 
   // Joined live against reflections at render time, never denormalized:
   // reflections' own RLS ("is_hidden = false or auth.uid() = user_id",
@@ -194,7 +213,10 @@ export default async function ProfilePage({ params }: { params: { userId: string
             name={name}
             size={64}
           />
-          <h1 className="text-2xl">{name}</h1>
+          <h1 className="text-2xl flex items-center gap-1.5">
+            {name}
+            {verifiedBuyer && <VerifiedBadge />}
+          </h1>
         </div>
 
         {/* Own-profile only (see the isOwnProfile check above): sharing
