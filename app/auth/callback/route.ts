@@ -23,5 +23,8 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(`${origin}${next}`);
+  // Routed through a brief branded loading page rather than straight to
+  // `next` -- see app/auth/welcome/page.tsx (cosmetic, for marketing video
+  // footage; not doing anything with the extra time).
+  return NextResponse.redirect(`${origin}/auth/welcome?next=${encodeURIComponent(next)}`);
 }
