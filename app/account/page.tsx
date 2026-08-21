@@ -43,6 +43,11 @@ export default async function AccountPage() {
             </p>
           </Link>
           <SignOutButton />
+          <p className="text-center mt-6">
+            <Link href="/privacy" className="text-xs text-gray-400 hover:text-ink transition-colors">
+              Privacy Policy
+            </Link>
+          </p>
         </div>
       </main>
     </AppShell>

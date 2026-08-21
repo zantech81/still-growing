@@ -18,6 +18,8 @@ export const RESERVED_SLUGS = new Set([
                  // this, middleware.ts's isJourneyRoute check would treat
                  // it as an unrecognized book slug and force a login
                  // redirect, breaking the page's "no auth required" ask.
+  "privacy",     // Public privacy policy page (app/privacy/page.tsx) --
+                 // same reasoning as "reviews" above.
   "embeds",      // public/embeds/* static assets (e.g. reviews-widget.js).
                  // Not actually at risk of the same middleware bug (that
                  // check only ever matches a bare single-segment path with
