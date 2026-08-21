@@ -10,22 +10,26 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // buyer and unlock count alone can't tell a real purchase from a
 // leaked/pirated copy.
 //
-// IMPORTANT: the signature header name/algorithm and the payload field
-// paths below are built from Systeme.io's public help articles plus a
-// third-party integration guide (Rollout), not their official developer
-// reference -- that page (developer.systeme.io) was blocked by
-// robots.txt when this was written, so none of this is confirmed
-// first-hand against real traffic. The full raw event is always stored
-// in `raw_payload` regardless of whether the typed-column extraction
-// below is right, specifically so nothing is lost if a guessed field path
-// is wrong. Once this route is wired up for real in Systeme.io, send a
-// test event (or wait for the first live sale) and check what actually
-// landed in `purchases.raw_payload` against what got extracted into the
-// other columns -- adjust the field paths below to match reality, and
-// confirm requests are actually passing signature verification rather
-// than silently failing closed.
+// The header names, event-type source, and payload field paths below were
+// wrong in the original version of this route (built from Systeme.io's
+// public help articles plus a third-party integration guide, not their
+// official developer reference, which was blocked by robots.txt at the
+// time). Confirmed and corrected 2026-08-21 against two real rejected
+// deliveries (order ids 12462465, 12462602) pulled from Systeme.io's own
+// webhook delivery log -- ground truth, not docs. The full raw event is
+// still always stored in `raw_payload` regardless of whether the
+// typed-column extraction below is right, so nothing is lost if a field
+// path turns out wrong again later.
 
 export const runtime = "nodejs"; // needs Node's crypto + raw request body
+
+type SystemeWebhookPayload = {
+  customer?: { email?: string };
+  order?: { id?: number | string; totalPrice?: number };
+  pricePlan?: { currency?: string; name?: string; innerName?: string };
+  orderItem?: { resources?: Array<{ tag?: { name?: string } }> };
+  funnelStep?: { funnel?: { name?: string } };
+};
 
 function verifySignature(rawBody: string, signatureHeader: string | null, secret: string): boolean {
   if (!signatureHeader) return false;
@@ -46,21 +50,25 @@ export async function POST(request: NextRequest) {
   // Read as raw text (not request.json()) -- HMAC verification has to run
   // against the exact bytes systeme.io signed, not a re-serialized object.
   const rawBody = await request.text();
-  const signature = request.headers.get("x-systeme-signature");
+  // Real header, confirmed against captured traffic -- NOT x-systeme-signature.
+  const signature = request.headers.get("x-webhook-signature");
 
   if (!verifySignature(rawBody, signature, secret)) {
     console.warn("[webhooks/systeme] Signature verification failed");
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
-  let payload: Record<string, unknown>;
+  let payload: SystemeWebhookPayload;
   try {
     payload = JSON.parse(rawBody);
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const rawType = String((payload as { type?: unknown })?.type ?? "").toLowerCase();
+  // Real payloads carry no "type" field in the body at all -- the event
+  // kind comes from this header instead (e.g. "SALE_NEW").
+  const eventType = request.headers.get("x-webhook-event") ?? "";
+  const rawType = eventType.toLowerCase();
   const isRefund = rawType.includes("refund") || rawType.includes("cancel");
   const isSale = rawType.includes("sale") && !isRefund;
 
@@ -69,19 +77,23 @@ export async function POST(request: NextRequest) {
     // webhook is ever scoped more broadly than just sales+refunds.
     // Acknowledge with 200 so systeme.io doesn't treat it as a failure
     // and keep retrying.
-    return NextResponse.json({ ok: true, ignored: true, type: rawType || null });
+    return NextResponse.json({ ok: true, ignored: true, type: eventType || null });
   }
 
-  // Best-effort extraction against the documented (but unconfirmed) shape:
-  // { type, data: { customer, order, order_item, funnel_step, offer_price_plan, coupon }, account, created_at }
-  const data = (payload as any)?.data ?? {};
-  const email: string | null = data?.customer?.email ?? data?.order?.customer?.email ?? null;
-  const orderId: string | null = data?.order?.id != null ? String(data.order.id) : null;
-  const amount: number | null =
-    data?.order?.direct_charge_amount ?? data?.order_item?.direct_charge_amount ?? null;
-  const currency: string | null = data?.order?.currency ?? null;
-  const productName: string | null =
-    data?.order_item?.name ?? data?.funnel_step?.name ?? data?.offer_price_plan?.name ?? null;
+  // Real payload shape has these fields at the root, no "data" wrapper.
+  const email: string | null = payload.customer?.email ?? null;
+  const orderId: string | null = payload.order?.id != null ? String(payload.order.id) : null;
+  // The amount actually charged, post-discount, in cents (matches
+  // pricePlan.amount's unit) -- not pricePlan.amount itself, which is the
+  // undiscounted list price.
+  const amount: number | null = payload.order?.totalPrice ?? null;
+  const currency: string | null = payload.pricePlan?.currency ?? null;
+  const productName: string | null = payload.pricePlan?.name ?? payload.pricePlan?.innerName ?? null;
+  // Which funnel/offer this came from (e.g. "llfab-book-buyer" vs.
+  // "llfab-gift-buyer"), so a gift-funnel purchase is distinguishable from
+  // a main-funnel one -- see 0046_purchases_product_tag.sql.
+  const productTag: string | null =
+    payload.orderItem?.resources?.[0]?.tag?.name ?? payload.funnelStep?.funnel?.name ?? null;
 
   if (!orderId) {
     console.warn(`[webhooks/systeme] No order id found in "${rawType}" payload, inserting without dedup`);
@@ -93,9 +105,10 @@ export async function POST(request: NextRequest) {
     systeme_order_id: orderId,
     email,
     product_name: productName,
+    product_tag: productTag,
     amount,
     currency,
-    event_type: (payload as { type?: string })?.type ?? "unknown",
+    event_type: eventType || "unknown",
     status: isRefund ? "refunded" : "completed",
     raw_payload: payload,
     ...(isRefund ? { refunded_at: new Date().toISOString() } : {}),
