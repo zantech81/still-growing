@@ -33,9 +33,9 @@ function Welcome() {
     <main className="min-h-screen flex items-center justify-center bg-cream">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/brand/logo-page-header.png"
-        alt="Still Growing"
-        className="h-16 w-auto animate-pulse"
+        src="/brand/nav-icon.png"
+        alt="Sprout"
+        className="h-32 w-32 animate-pulse"
       />
     </main>
   );
