@@ -8,7 +8,7 @@ import { pickGrowthQuote } from "@/lib/growthQuotes";
 import AppShell from "@/components/AppShell";
 import GrowingTree from "@/components/GrowingTree";
 import ShareButton from "@/components/ShareButton";
-import FlagImg from "@/components/FlagImg";
+import CountryGrid from "@/components/CountryGrid";
 
 const COUNTRY_NAMES = new Map(COUNTRIES.map((c) => [c.code, c.name]));
 // Beyond this many distinct countries, the 3x3 grid gets a 4th row
@@ -75,8 +75,6 @@ export default async function GrowingPage() {
   const countryBreakdown = [...countryCounts.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .map(([code, count]) => ({ code, count, name: COUNTRY_NAMES.get(code) ?? code }));
-  const visibleCountries = countryBreakdown.slice(0, COUNTRY_DISPLAY_CAP);
-  const hiddenCountryCount = countryBreakdown.length - visibleCountries.length;
 
   const growingSince = earliestConnectedAt
     ? new Date(earliestConnectedAt).toLocaleDateString("en", { month: "long", day: "numeric", year: "numeric" })
@@ -146,17 +144,7 @@ export default async function GrowingPage() {
         )}
 
         {countryBreakdown.length > 0 && (
-          <div className="grid grid-cols-3 gap-x-3 gap-y-2 justify-items-center mt-4 max-w-sm mx-auto text-sm text-ink">
-            {visibleCountries.map(({ code, count, name }) => (
-              <span key={code} className="flex items-center gap-1.5">
-                <FlagImg code={code} className="rounded-sm" />
-                {name} · {count}
-              </span>
-            ))}
-            {hiddenCountryCount > 0 && (
-              <span className="col-span-3 text-gray-400">+{hiddenCountryCount} more countries</span>
-            )}
-          </div>
+          <CountryGrid countries={countryBreakdown} cap={COUNTRY_DISPLAY_CAP} />
         )}
 
         {connectionCount === 0 ? (
