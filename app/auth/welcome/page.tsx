@@ -25,7 +25,7 @@ function Welcome() {
     const timer = setTimeout(() => {
       // replace, not push -- the loading beat shouldn't be a back-button stop.
       router.replace(next);
-    }, 2000);
+    }, 1000);
     return () => clearTimeout(timer);
   }, [next, router]);
 
