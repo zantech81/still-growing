@@ -22,26 +22,33 @@ function Welcome() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/library";
 
-  // CRITICAL: email magic-link sign-in delivers the session as a URL hash
-  // fragment (#access_token=...), not a ?code= param -- confirmed directly
-  // against real production traffic 2026-08-25. Hash fragments never reach
-  // the server, so app/auth/callback/route.ts's `code` check can't see it;
-  // nothing ever established a session for it until this page's own
-  // client processes it. Before this fix, nothing did: this page had no
-  // supabase client of its own, and the redirect below is a client-side
-  // router.replace (no full page load), which silently strips the hash
-  // from the URL before any *later* page's client could see it either --
-  // so email sign-in was landing everyone on /library with no real
-  // session at all. Google OAuth (proper PKCE code flow) was never
-  // affected by this, only the email magic-link path.
+  // Open question, not fully resolved (see the 2026-08-25 investigation
+  // notes): testing via supabase.auth.admin.generateLink() showed an
+  // admin-generated magic link redirects here with the session as a URL
+  // hash fragment (#access_token=...), not a ?code= param. Hash fragments
+  // never reach the server, so app/auth/callback/route.ts's `code` check
+  // can't see it -- and this page's own client can't process it either,
+  // confirmed empirically: @supabase/ssr's createBrowserClient hardcodes
+  // flowType: "pkce" (see node_modules/@supabase/ssr/dist/main/
+  // createBrowserClient.js), which only looks for ?code=, not a hash.
+  // Calling getSession() here does NOT recover that case.
   //
-  // createClient()'s detectSessionInUrl (default true) picks up and
-  // persists that hash-fragment session to cookies -- but only if it
-  // resolves before the redirect changes the URL, so the redirect timer
-  // is chained after this rather than running as an independent effect:
-  // a fixed 1000ms felt "probably enough" but isn't a guarantee, and
-  // getting this wrong is exactly how the bug happened in the first
-  // place.
+  // What's genuinely uncertain: whether a REAL user's magic link (sent via
+  // the actual login page's signInWithOtp() call, from a real
+  // PKCE-configured browser) behaves the same way -- Supabase's own docs
+  // suggest a PKCE-initiated request should get a PKCE-compatible ?code=
+  // link back, which the existing server-side exchangeCodeForSession
+  // handles fine. Admin-generated links are a different code path with no
+  // client-side PKCE context, so this may just be a test-methodology
+  // artifact rather than a real bug -- couldn't fully verify either way
+  // without a real email inbox to click through. Flagged for Zan to
+  // confirm with a real email sign-in.
+  //
+  // getSession() is kept here regardless: harmless and correct for the
+  // already-covered case (Google OAuth's proper PKCE code flow, where the
+  // cookie is already set server-side by the time this page loads, so
+  // this just reads it), chained before the redirect below rather than
+  // run as an independent timer so there's no race either way.
   useEffect(() => {
     const supabase = createClient();
     let cancelled = false;

@@ -8,35 +8,26 @@ const TIMEOUT_MS = 5_000;
 // Safe to call on every login: exits immediately if already synced.
 // Never throws: all errors are logged and the caller is unaffected.
 export async function syncSystemeContact(userId: string, email: string): Promise<void> {
-  console.log("[systeme][debug] syncSystemeContact called", { userId, email }); // TEMP debug
   const apiKey = process.env.SYSTEME_API_KEY;
   if (!apiKey) {
     console.warn("[systeme] SYSTEME_API_KEY not set, skipping sync");
     return;
   }
-  if (!email) {
-    console.log("[systeme][debug] no email, returning early"); // TEMP debug
-    return;
-  }
+  if (!email) return;
 
   try {
     const supabase = createAdminClient();
 
     // Idempotency guard: skip if we already have a contact ID for this user.
-    const { data: profile, error: profileErr } = await supabase
+    const { data: profile } = await supabase
       .from("users")
       .select("systeme_contact_id")
       .eq("id", userId)
       .single();
-    console.log("[systeme][debug] profile lookup", { profile, profileErr: profileErr?.message }); // TEMP debug
 
-    if (profile?.systeme_contact_id) {
-      console.log("[systeme][debug] already synced, returning early"); // TEMP debug
-      return;
-    }
+    if (profile?.systeme_contact_id) return;
 
     const contactId = await createOrFindContact(apiKey, email);
-    console.log("[systeme][debug] createOrFindContact returned", { contactId }); // TEMP debug
     if (!contactId) return;
 
     const { error } = await supabase
@@ -44,7 +35,6 @@ export async function syncSystemeContact(userId: string, email: string): Promise
       .update({ systeme_contact_id: contactId })
       .eq("id", userId);
 
-    console.log("[systeme][debug] update result", { error: error?.message }); // TEMP debug
     if (error) {
       console.error("[systeme] Failed to store contact ID:", error.message);
     }

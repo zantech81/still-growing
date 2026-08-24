@@ -14,16 +14,15 @@ import { syncSystemeContact } from "@/lib/systeme";
 // question to answer.
 //
 // Derives the user from the request's own session cookie rather than
-// requiring the client to pass an id/email -- the cookie is already set
-// by the time this fires, since /auth/callback's exchangeCodeForSession
-// ran first.
+// requiring the client to pass an id/email -- app/auth/welcome/page.tsx
+// only fires this after its own session check has settled, so the cookie
+// is already in place by the time this request lands (see that page's
+// comments for why that ordering has to be explicit, not assumed).
 export async function POST() {
-  console.log("[sync-contact][debug] route hit"); // TEMP debug
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  console.log("[sync-contact][debug] getUser result", { userId: user?.id, email: user?.email }); // TEMP debug
 
   if (user) {
     // Never throws (see its own comment) and is idempotent (checks
@@ -31,6 +30,5 @@ export async function POST() {
     await syncSystemeContact(user.id, user.email ?? "");
   }
 
-  console.log("[sync-contact][debug] route returning ok"); // TEMP debug
   return NextResponse.json({ ok: true });
 }
