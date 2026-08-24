@@ -13,7 +13,7 @@ export default async function OnboardingPage() {
   // If already has a nickname, skip this page
   const { data: profile } = await supabase
     .from("users")
-    .select("nickname")
+    .select("nickname, avatar_color")
     .eq("id", user.id)
     .single();
 
@@ -28,7 +28,7 @@ export default async function OnboardingPage() {
         <p className="text-gray-400 mb-10 text-sm">
           Choose a nickname for the Circle, the space where readers share reflections.
         </p>
-        <OnboardingForm />
+        <OnboardingForm avatarColor={profile?.avatar_color ?? "#E8A0B8"} />
       </div>
     </div>
   );

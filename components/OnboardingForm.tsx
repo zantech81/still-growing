@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/countries";
+import { AVATARS } from "@/lib/avatars";
 import FlagImg from "@/components/FlagImg";
+import Avatar from "@/components/Avatar";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -15,10 +17,15 @@ function daysInMonth(month: number): number {
   return new Date(2001, month, 0).getDate();
 }
 
-export default function OnboardingForm() {
+type Props = {
+  avatarColor: string;
+};
+
+export default function OnboardingForm({ avatarColor }: Props) {
   const router = useRouter();
   const [nickname, setNickname] = useState("");
   const [country, setCountry] = useState("");
+  const [avatar, setAvatar] = useState("");
   const [birthMonth, setBirthMonth] = useState("");
   const [birthDay, setBirthDay] = useState("");
   const [nicknameError, setNicknameError] = useState("");
@@ -48,7 +55,17 @@ export default function OnboardingForm() {
     return () => { if (checkTimeout.current) clearTimeout(checkTimeout.current); };
   }, [nickname]);
 
-  async function handleSave() {
+  // Accepts explicit overrides rather than always reading state directly:
+  // handleSkipOptional calls this in the same tick as clearing state, and
+  // a same-tick setState doesn't land in this closure yet, so without the
+  // override the "cleared" fields would actually save their pre-clear
+  // values.
+  async function handleSave(overrides?: {
+    country?: string;
+    avatar?: string;
+    birthMonth?: string;
+    birthDay?: string;
+  }) {
     const trimmed = nickname.trim();
     if (!trimmed) {
       setNicknameError("Please choose a nickname.");
@@ -67,11 +84,16 @@ export default function OnboardingForm() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    const payload: Record<string, unknown> = { nickname: trimmed };
-    if (country) payload.country_code = country;
-    if (birthMonth && birthDay) {
-      payload.birth_month = parseInt(birthMonth, 10);
-      payload.birth_day = parseInt(birthDay, 10);
+    const effectiveCountry = overrides?.country ?? country;
+    const effectiveAvatar = overrides?.avatar ?? avatar;
+    const effectiveBirthMonth = overrides?.birthMonth ?? birthMonth;
+    const effectiveBirthDay = overrides?.birthDay ?? birthDay;
+
+    const payload: Record<string, unknown> = { nickname: trimmed, avatar_key: effectiveAvatar || null };
+    if (effectiveCountry) payload.country_code = effectiveCountry;
+    if (effectiveBirthMonth && effectiveBirthDay) {
+      payload.birth_month = parseInt(effectiveBirthMonth, 10);
+      payload.birth_day = parseInt(effectiveBirthDay, 10);
     }
 
     const { error } = await supabase
@@ -100,12 +122,13 @@ export default function OnboardingForm() {
       return;
     }
     setCountry("");
+    setAvatar("");
     setBirthMonth("");
     setBirthDay("");
-    await handleSave();
+    await handleSave({ country: "", avatar: "", birthMonth: "", birthDay: "" });
   }
 
-  const hasOptional = country || birthMonth || birthDay;
+  const hasOptional = country || avatar || birthMonth || birthDay;
 
   return (
     <div className="space-y-8">
@@ -181,6 +204,46 @@ export default function OnboardingForm() {
         </div>
       </div>
 
+      {/* Avatar */}
+      <div>
+        <p className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+          Avatar{" "}
+          <span className="normal-case tracking-normal text-gray-300">(optional)</span>
+        </p>
+        <div className="flex items-center gap-4 mb-3">
+          <Avatar
+            avatarKey={avatar || null}
+            countryCode={country || null}
+            avatarColor={avatarColor}
+            name={nickname || "?"}
+            size={48}
+          />
+          <p className="text-xs text-gray-400">
+            {avatar
+              ? "Pick a different one below, or select it again to clear it."
+              : "Shown on your profile and in the Circle. Skip it and your flag or initial is used instead."}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {AVATARS.map((a) => (
+            <button
+              key={a.key}
+              type="button"
+              onClick={() => setAvatar(avatar === a.key ? "" : a.key)}
+              aria-label={a.label}
+              aria-pressed={avatar === a.key}
+              className={`w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-lg transition-shadow ${
+                avatar === a.key ? "ring-2 ring-offset-2 ring-pink-deep" : ""
+              }`}
+              style={{ backgroundColor: a.color }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {a.image ? <img src={a.image} alt="" className="w-full h-full object-cover" /> : a.emoji}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Birthday */}
       <div>
         <p className="text-xs uppercase tracking-widest text-gray-400 mb-2">
@@ -221,7 +284,7 @@ export default function OnboardingForm() {
 
       <div className="flex flex-col gap-3">
         <button
-          onClick={handleSave}
+          onClick={() => handleSave()}
           disabled={submitting || nicknameStatus === "taken"}
           className="bg-plum text-white px-6 py-3 rounded-xl2 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
         >
