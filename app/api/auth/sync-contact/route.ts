@@ -18,10 +18,12 @@ import { syncSystemeContact } from "@/lib/systeme";
 // by the time this fires, since /auth/callback's exchangeCodeForSession
 // ran first.
 export async function POST() {
+  console.log("[sync-contact][debug] route hit"); // TEMP debug
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  console.log("[sync-contact][debug] getUser result", { userId: user?.id, email: user?.email }); // TEMP debug
 
   if (user) {
     // Never throws (see its own comment) and is idempotent (checks
@@ -29,5 +31,6 @@ export async function POST() {
     await syncSystemeContact(user.id, user.email ?? "");
   }
 
+  console.log("[sync-contact][debug] route returning ok"); // TEMP debug
   return NextResponse.json({ ok: true });
 }
