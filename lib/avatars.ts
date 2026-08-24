@@ -28,6 +28,12 @@ export type AvatarOption = {
   color: string;
   emoji: string;
   image?: string;
+  // Hides this option from the picker grid (AccountForm.tsx,
+  // OnboardingForm.tsx) unless the current user is an admin. Deliberately
+  // NOT consulted by AVATAR_MAP/Avatar.tsx: this only gates who can PICK
+  // an option, never how an already-saved avatar_key renders for anyone
+  // viewing it (own settings, another reader's public profile, Circle).
+  adminOnly?: boolean;
 };
 
 export const NATURE_AVATARS: AvatarOption[] = [
@@ -66,6 +72,21 @@ export const BABY_AVATARS: AvatarOption[] = [
   { key: "baby-medium-dark", label: "Baby (Medium Dark)", color: BABY_BLUE, emoji: "👶🏾", image: "/avatars/avatar-baby-3.png" },
   { key: "baby-dark", label: "Baby (Dark)", color: BABY_PINK, emoji: "👶🏿", image: "/avatars/avatar-baby-5.png" },
   { key: "baby-default", label: "Baby (Default)", color: BABY_BLUE, emoji: "👶", image: "/avatars/avatar-baby-4.png" },
+  { key: "baby-east-asian-boy", label: "Baby (East Asian Boy)", color: BABY_PINK, emoji: "👶", image: "/avatars/avatar-baby-east-asian-boy.png" },
+  { key: "baby-east-asian-girl", label: "Baby (East Asian Girl)", color: BABY_BLUE, emoji: "👶", image: "/avatars/avatar-baby-east-asian-girl.png" },
+];
+
+// Real Sprout mascot (baby leaning against a tree -- the character used in
+// the site's own logo/favicon, cropped from icon-square-1024.png), kept
+// admin-only per Zan: not ready to offer this as a regular pick yet. Not
+// merged into BABY_AVATARS above -- gating (see AvatarOption.adminOnly)
+// deserves its own clearly-labeled home rather than being buried in a
+// list that's otherwise entirely ungated. Reuses NATURE_AVATARS' "sprout"
+// leaf-green rather than inventing a new color, since both are literally
+// the same "Sprout" branding even though "sprout" (seedling-in-pot) is a
+// distinct, already-taken key/option.
+export const ADMIN_AVATARS: AvatarOption[] = [
+  { key: "sprout-mascot", label: "Sprout Mascot", color: "#5EA83F", emoji: "🌱", image: "/avatars/avatar-sprout-mascot.png", adminOnly: true },
 ];
 
 // Brand new options, not tied to any previous emoji placeholder --
@@ -92,6 +113,6 @@ export const MORE_AVATARS: AvatarOption[] = [
   { key: "book", label: "Book", color: "#C76A8A", emoji: "📖", image: "/avatars/avatar-book.png" },
 ];
 
-export const AVATARS: AvatarOption[] = [...NATURE_AVATARS, ...BABY_AVATARS, ...MORE_AVATARS];
+export const AVATARS: AvatarOption[] = [...NATURE_AVATARS, ...BABY_AVATARS, ...MORE_AVATARS, ...ADMIN_AVATARS];
 
 export const AVATAR_MAP: Map<string, AvatarOption> = new Map(AVATARS.map((a) => [a.key, a]));

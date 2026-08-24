@@ -26,6 +26,7 @@ type Props = {
   birthDay: number | null;
   avatarKey: string | null;
   avatarColor: string;
+  isAdmin: boolean;
 };
 
 export default function AccountForm({
@@ -37,6 +38,7 @@ export default function AccountForm({
   birthDay,
   avatarKey,
   avatarColor,
+  isAdmin,
 }: Props) {
   const [nicknameVal, setNicknameVal] = useState(nickname ?? "");
   const [country, setCountry] = useState(countryCode ?? "");
@@ -51,6 +53,9 @@ export default function AccountForm({
 
   const selectedMonth = parseInt(birthMonthVal, 10) || 0;
   const maxDay = selectedMonth ? daysInMonth(selectedMonth) : 31;
+  // Gates who can PICK an admin-only option, not how an already-saved one
+  // renders -- Avatar.tsx's AVATAR_MAP lookup is deliberately untouched.
+  const pickableAvatars = AVATARS.filter((a) => !a.adminOnly || isAdmin);
   const dayOptions = Array.from({ length: maxDay }, (_, i) => i + 1);
 
   // Debounced live nickname uniqueness check
@@ -149,7 +154,7 @@ export default function AccountForm({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {AVATARS.map((a) => (
+          {pickableAvatars.map((a) => (
             <button
               key={a.key}
               type="button"

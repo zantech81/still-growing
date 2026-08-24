@@ -19,9 +19,10 @@ function daysInMonth(month: number): number {
 
 type Props = {
   avatarColor: string;
+  isAdmin: boolean;
 };
 
-export default function OnboardingForm({ avatarColor }: Props) {
+export default function OnboardingForm({ avatarColor, isAdmin }: Props) {
   const router = useRouter();
   const [nickname, setNickname] = useState("");
   const [country, setCountry] = useState("");
@@ -37,6 +38,9 @@ export default function OnboardingForm({ avatarColor }: Props) {
   const selectedMonth = parseInt(birthMonth, 10) || 0;
   const maxDay = selectedMonth ? daysInMonth(selectedMonth) : 31;
   const dayOptions = Array.from({ length: maxDay }, (_, i) => i + 1);
+  // Gates who can PICK an admin-only option, not how an already-saved one
+  // renders -- Avatar.tsx's AVATAR_MAP lookup is deliberately untouched.
+  const pickableAvatars = AVATARS.filter((a) => !a.adminOnly || isAdmin);
 
   // Debounced live nickname uniqueness check
   useEffect(() => {
@@ -225,7 +229,7 @@ export default function OnboardingForm({ avatarColor }: Props) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {AVATARS.map((a) => (
+          {pickableAvatars.map((a) => (
             <button
               key={a.key}
               type="button"
