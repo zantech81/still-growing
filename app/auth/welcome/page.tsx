@@ -29,6 +29,18 @@ function Welcome() {
     return () => clearTimeout(timer);
   }, [next, router]);
 
+  // Systeme.io contact sync used to run inside app/auth/callback/route.ts
+  // itself; moved here as a real client-initiated request instead, since
+  // that's the only mechanism that was actually confirmed to reliably
+  // finish (see the long comment in app/auth/callback/route.ts and
+  // app/api/auth/sync-contact/route.ts for why). Not awaited -- this page
+  // redirects on its own 1s timer regardless -- but `keepalive: true`
+  // lets the request survive that redirect rather than being cancelled
+  // when this page unmounts.
+  useEffect(() => {
+    fetch("/api/auth/sync-contact", { method: "POST", keepalive: true }).catch(() => {});
+  }, []);
+
   return (
     <main className="min-h-screen flex items-center justify-center bg-cream">
       {/* eslint-disable-next-line @next/next/no-img-element */}

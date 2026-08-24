@@ -12,7 +12,6 @@
     "@mux/mux-player-react": "^3.1.0",
     "@supabase/ssr": "^0.5.1",
     "@supabase/supabase-js": "^2.45.4",
-    "@vercel/functions": "^3.9.5",
     "bad-words": "^4.1.0",
     "nanoid": "^6.0.0",
     "next": "^14.2.35",
