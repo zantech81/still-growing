@@ -125,6 +125,23 @@ export default function AppNav({ name, avatarKey, countryCode, avatarColor, hasU
     return () => document.removeEventListener("mousedown", handleMouseDown);
   }, [showPanel]);
 
+  // Reflects the same unread signal already driving the bell's dot onto
+  // the installed app's home-screen/taskbar icon (Chrome/Edge only --
+  // the Badging API isn't in TS's bundled DOM lib yet, hence the local
+  // type). A plain indicator (no count) since that's honestly what
+  // `showDot` represents. Feature-detected so this silently no-ops
+  // anywhere unsupported (iOS Safari without notification permission
+  // granted, Firefox, etc.) rather than erroring.
+  useEffect(() => {
+    const nav = navigator as Navigator & {
+      setAppBadge?: (count?: number) => Promise<void>;
+      clearAppBadge?: () => Promise<void>;
+    };
+    if (!nav.setAppBadge || !nav.clearAppBadge) return;
+    const call = showDot ? nav.setAppBadge() : nav.clearAppBadge();
+    call.catch(() => {});
+  }, [showDot]);
+
   function activeTab(): "Library" | "Journey" | "Circle" | "Growing" | null {
     if (pathname.startsWith("/library")) return "Library";
     if (pathname.startsWith("/circle")) return "Circle";
