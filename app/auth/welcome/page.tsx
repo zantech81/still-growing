@@ -22,6 +22,14 @@ function Welcome() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/library";
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // replace, not push -- the loading beat shouldn't be a back-button stop.
+      router.replace(next);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [next, router]);
+
   // Open question, not fully resolved (see the 2026-08-25 investigation
   // notes): testing via supabase.auth.admin.generateLink() showed an
   // admin-generated magic link redirects here with the session as a URL
@@ -31,53 +39,42 @@ function Welcome() {
   // confirmed empirically: @supabase/ssr's createBrowserClient hardcodes
   // flowType: "pkce" (see node_modules/@supabase/ssr/dist/main/
   // createBrowserClient.js), which only looks for ?code=, not a hash.
-  // Calling getSession() here does NOT recover that case.
+  // Calling getSession() here does NOT recover that case, so it's kept as
+  // an independent, non-blocking effect rather than something the redirect
+  // above waits on -- an earlier version chained the redirect after this,
+  // and that made the "1 second" pause take ~2 seconds instead (getSession
+  // itself isn't free), for zero actual benefit in the case it was meant
+  // to protect. Harmless and possibly still useful for the case that IS
+  // covered (Google OAuth's proper PKCE code flow, where the cookie is
+  // already set server-side by the time this page loads, so this just
+  // reads it).
   //
   // What's genuinely uncertain: whether a REAL user's magic link (sent via
   // the actual login page's signInWithOtp() call, from a real
-  // PKCE-configured browser) behaves the same way -- Supabase's own docs
-  // suggest a PKCE-initiated request should get a PKCE-compatible ?code=
-  // link back, which the existing server-side exchangeCodeForSession
-  // handles fine. Admin-generated links are a different code path with no
-  // client-side PKCE context, so this may just be a test-methodology
-  // artifact rather than a real bug -- couldn't fully verify either way
-  // without a real email inbox to click through. Flagged for Zan to
-  // confirm with a real email sign-in.
-  //
-  // getSession() is kept here regardless: harmless and correct for the
-  // already-covered case (Google OAuth's proper PKCE code flow, where the
-  // cookie is already set server-side by the time this page loads, so
-  // this just reads it), chained before the redirect below rather than
-  // run as an independent timer so there's no race either way.
+  // PKCE-configured browser) behaves the same way as the admin-generated
+  // test links above -- Supabase's own docs suggest a PKCE-initiated
+  // request should get a PKCE-compatible ?code= link back, which the
+  // existing server-side exchangeCodeForSession already handles fine.
+  // Admin-generated links are a different code path with no client-side
+  // PKCE context, so this may just be a test-methodology artifact rather
+  // than a real bug -- couldn't fully verify either way without a real
+  // email inbox to click through. Flagged for Zan to confirm with a real
+  // email sign-in.
   useEffect(() => {
     const supabase = createClient();
-    let cancelled = false;
+    supabase.auth.getSession().catch(() => {});
+  }, []);
 
-    supabase.auth.getSession().finally(() => {
-      if (cancelled) return;
-
-      // Systeme.io contact sync moved here as a real client-initiated
-      // request rather than running inside the callback route -- that's
-      // the only mechanism confirmed to reliably finish (see the long
-      // comment in app/auth/callback/route.ts and
-      // app/api/auth/sync-contact/route.ts for why). Needs the session
-      // cookie above to already be set to identify the user. Not awaited
-      // itself -- the redirect below fires regardless -- but
-      // `keepalive: true` lets the request survive that redirect rather
-      // than being cancelled when this page unmounts.
-      fetch("/api/auth/sync-contact", { method: "POST", keepalive: true }).catch(() => {});
-
-      setTimeout(() => {
-        if (cancelled) return;
-        // replace, not push -- the loading beat shouldn't be a back-button stop.
-        router.replace(next);
-      }, 1000);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [next, router]);
+  // Systeme.io contact sync moved here as a real client-initiated request
+  // rather than running inside the callback route -- that's the only
+  // mechanism confirmed to reliably finish (see the long comment in
+  // app/auth/callback/route.ts and app/api/auth/sync-contact/route.ts for
+  // why). Not awaited -- the redirect above fires on its own regardless --
+  // but `keepalive: true` lets the request survive that redirect rather
+  // than being cancelled when this page unmounts.
+  useEffect(() => {
+    fetch("/api/auth/sync-contact", { method: "POST", keepalive: true }).catch(() => {});
+  }, []);
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-cream">
