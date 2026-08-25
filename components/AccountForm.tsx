@@ -183,6 +183,28 @@ export default function AccountForm({
           </span>
           <span className="text-pink-deep text-lg" aria-hidden="true">→</span>
         </Link>
+        {/* External, cross-domain link (baby.stillgrowing.co, not this
+            app) -- plain <a>, not next/link's <Link>. No existing
+            target/rel convention in this codebase fit a signed-in reader
+            deliberately leaving an active session (the one other
+            external link out to this domain, BookPromo.tsx's salesUrl,
+            is same-tab, but that's cold/logged-out traffic with no app
+            session to preserve -- not really the same situation), so
+            this opens in a new tab instead. */}
+        <a
+          href="https://baby.stillgrowing.co/gift?ref=account"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between gap-3 bg-pink-pale hover:bg-pink-dusty transition-colors rounded-xl2 px-5 py-4 mt-4"
+        >
+          <span>
+            <span className="block font-display text-plum">Give a Copy</span>
+            <span className="block text-xs text-pink-deep mt-0.5">
+              Someone else might need this too
+            </span>
+          </span>
+          <span className="text-pink-deep text-lg" aria-hidden="true">→</span>
+        </a>
       </div>
 
       {/* Nickname */}
