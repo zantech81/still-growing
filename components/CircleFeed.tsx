@@ -227,7 +227,16 @@ export default function CircleFeed({
   const [reported, setReported] = useState<Set<string>>(new Set(myReportedIds));
   const [rootedFor, setRootedFor] = useState<Set<string>>(new Set(myRootedForIds));
   // Author ids with a root-for toggle currently in flight -- see
-  // toggleRootFor's guard below for why this exists.
+  // toggleRootFor's guard below for why this exists. Mirrored in two
+  // places on purpose: a ref for the actual guard check (mutates
+  // synchronously, so it's correct even when two clicks are handled back
+  // to back before React has re-rendered from the first one) and state
+  // to drive the button's visual disabled look (which does need to go
+  // through a render either way). A state-only guard was tried first and
+  // didn't work -- two clicks landing before the first click's setState
+  // is reflected in a re-render both read the same stale "not pending"
+  // snapshot, exactly the same failure mode this was meant to fix.
+  const pendingRootForRef = useRef<Set<string>>(new Set());
   const [pendingRootFor, setPendingRootFor] = useState<Set<string>>(new Set());
   const [pinned, setPinned] = useState<Set<string>>(new Set(myPinnedIds));
   const [heartCounts, setHeartCounts] = useState<Record<string, number>>(
@@ -384,8 +393,17 @@ export default function CircleFeed({
     // stayed showing "rooted" while the server ended up unrooted. Simplest
     // fix that closes both failure modes at once: don't allow a second
     // request to start for this author until the first one has settled.
-    if (pendingRootFor.has(authorId)) return;
-    setPendingRootFor((prev) => new Set(prev).add(authorId));
+    //
+    // Checked/set on the ref, not the pendingRootFor state -- two clicks
+    // handled synchronously back to back (the exact rapid-double-click
+    // case this exists for) can both run before React re-renders from the
+    // first click's setState, so a state read here would see the same
+    // stale "nothing pending yet" value both times. The ref mutates
+    // immediately, so the second call correctly sees what the first one
+    // just did.
+    if (pendingRootForRef.current.has(authorId)) return;
+    pendingRootForRef.current.add(authorId);
+    setPendingRootFor(new Set(pendingRootForRef.current));
 
     const adding = !rootedFor.has(authorId);
 
@@ -424,11 +442,8 @@ export default function CircleFeed({
         });
       }
     } finally {
-      setPendingRootFor((prev) => {
-        const next = new Set(prev);
-        next.delete(authorId);
-        return next;
-      });
+      pendingRootForRef.current.delete(authorId);
+      setPendingRootFor(new Set(pendingRootForRef.current));
     }
   }
 
