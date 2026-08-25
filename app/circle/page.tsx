@@ -16,7 +16,7 @@ type BookUnlockJoin = {
 export default async function CirclePage({
   searchParams,
 }: {
-  searchParams: { book?: string | string[] };
+  searchParams: { book?: string | string[]; highlight?: string | string[] };
 }) {
   const supabase = createClient();
   const {
@@ -51,6 +51,9 @@ export default async function CirclePage({
     );
   }
 
+  const highlightReflectionId = Array.isArray(searchParams?.highlight)
+    ? searchParams.highlight[0]
+    : searchParams?.highlight;
   const requestedSlug = Array.isArray(searchParams?.book) ? searchParams.book[0] : searchParams?.book;
   let selected = requestedSlug ? unlocks.find((u) => u.books.slug === requestedSlug) : undefined;
   // Only auto-select when there's genuinely nothing to choose between --
@@ -208,6 +211,7 @@ export default async function CirclePage({
           myCountryCode={myProfile?.country_code ?? null}
           maxLength={maxLength}
           bookId={book.id}
+          highlightReflectionId={highlightReflectionId}
         />
       </main>
     </AppShell>

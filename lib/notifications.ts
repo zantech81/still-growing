@@ -19,10 +19,11 @@ export async function notifyReaction(
   try {
     const supabase = createAdminClient();
 
-    // Fetch reflection + author email in one query.
+    // Fetch reflection + author email + book slug (for the bell's
+    // click-through deep link) in one query.
     const { data: reflection } = await supabase
       .from("reflections")
-      .select("user_id, chapter_number, users(email)")
+      .select("user_id, chapter_number, book_id, books(slug), users(email)")
       .eq("id", reflectionId)
       .single();
 
@@ -34,6 +35,12 @@ export async function notifyReaction(
     const author = reflection.users as unknown as { email: string } | null;
     if (!author?.email) return;
 
+    // PostgREST many-to-one joins normally come back as a single object,
+    // but this normalizes defensively in case the shape ever comes back
+    // as an array -- same pattern as CircleFeed.tsx's getAuthor().
+    const booksRaw = reflection.books as unknown;
+    const book = (Array.isArray(booksRaw) ? booksRaw[0] : booksRaw) as { slug: string } | null;
+
     // Insert notification row first (in-app layer, independent of email).
     const { data: notif } = await supabase
       .from("notifications")
@@ -43,6 +50,7 @@ export async function notifyReaction(
         payload: {
           reflection_id: reflectionId,
           chapter_number: reflection.chapter_number,
+          book_slug: book?.slug ?? null,
         },
         email_sent: false,
       })
@@ -65,6 +73,27 @@ export async function notifyReaction(
     }
   } catch (err) {
     console.error("[notifications] notifyReaction error:", err);
+  }
+}
+
+// ── Root for notification ────────────────────────────────────────────────────
+
+// Called after a fresh "root for" connection insert (not a duplicate --
+// see app/api/connections/route.ts's own 23505 handling). No email,
+// intentionally scoped to the bell/app-badge only for now -- easy to
+// extend later the same way notifyReaction sends one, if wanted.
+// Never throws. All errors are logged.
+export async function notifyRootFor(rootedForUserId: string): Promise<void> {
+  try {
+    const supabase = createAdminClient();
+    await supabase.from("notifications").insert({
+      user_id: rootedForUserId,
+      type: "root_for",
+      payload: {},
+      email_sent: false,
+    });
+  } catch (err) {
+    console.error("[notifications] notifyRootFor error:", err);
   }
 }
 

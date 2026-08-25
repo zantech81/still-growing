@@ -176,6 +176,12 @@ type Props = {
   myCountryCode: string | null;
   maxLength: number;
   bookId: string;
+  // Reflection id to scroll to and briefly highlight on mount -- set when
+  // arriving from a "someone felt your reflection" bell notification (see
+  // components/NotificationPanel.tsx). Silently does nothing if the
+  // matching card isn't found (reflection since deleted/hidden/private,
+  // outside the currently loaded 100, or not part of this book).
+  highlightReflectionId?: string;
 };
 
 function relativeTime(iso: string): string {
@@ -201,6 +207,7 @@ export default function CircleFeed({
   myCountryCode,
   maxLength,
   bookId,
+  highlightReflectionId,
 }: Props) {
   const [reflections, setReflections] = useState<ReflectionRow[]>(initialReflections);
   // Four independent filter dimensions that AND together, not a single
@@ -225,6 +232,23 @@ export default function CircleFeed({
   useEffect(() => {
     localStorage.setItem(`sg_circle_last_visit_${currentUserId}`, Date.now().toString());
   }, [currentUserId]);
+
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+  // Scrolls to and briefly highlights the reflection a "someone felt your
+  // reflection" notification points at. Runs once on mount -- deliberately
+  // not reactive to highlightReflectionId changing later, same mount-only
+  // intent as the visibilitychange effect below.
+  useEffect(() => {
+    if (!highlightReflectionId) return;
+    const el = document.getElementById(`reflection-${highlightReflectionId}`);
+    if (!el) return; // deleted/hidden/private/not-loaded -- no error state needed
+
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedId(highlightReflectionId);
+    const timer = setTimeout(() => setHighlightedId(null), 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Stable ref of reflection IDs. Never changes after mount, safe to use in effect with [] deps.
   const reflectionIdsRef = useRef<string[]>(reflections.map((r) => r.id));
@@ -503,7 +527,10 @@ export default function CircleFeed({
             return (
               <div
                 key={r.id}
-                className="bg-white border border-pink-pale rounded-xl2 p-5"
+                id={`reflection-${r.id}`}
+                className={`bg-white border border-pink-pale rounded-xl2 p-5 transition-shadow ${
+                  highlightedId === r.id ? "ring-2 ring-pink-deep" : ""
+                }`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 mb-3">
                   <Link href={`/u/${r.user_id}`} className="flex items-center gap-3 min-w-0 sm:flex-1 hover:opacity-80 transition-opacity">

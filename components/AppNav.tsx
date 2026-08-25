@@ -225,6 +225,7 @@ export default function AppNav({ name, avatarKey, countryCode, avatarColor, hasU
               {showPanel && (
                 <NotificationPanel
                   onMarkRead={() => setShowDot(false)}
+                  onClose={() => setShowPanel(false)}
                 />
               )}
             </div>

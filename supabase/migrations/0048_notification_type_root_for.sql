@@ -1,0 +1,11 @@
+-- Adds the enum value needed for the "Root for" bell notification
+-- (lib/notifications.ts's notifyRootFor). 'new_reflection' and 'milestone'
+-- are also enum members with zero references anywhere in the codebase --
+-- dead values from a feature that was never wired up, deliberately left
+-- alone rather than reused for this.
+--
+-- Standalone migration on purpose: ALTER TYPE ... ADD VALUE can't run in
+-- the same transaction as a statement that uses the new value, so this
+-- must be applied and confirmed before any code that inserts
+-- type: 'root_for' is deployed/tested against it.
+alter type notification_type add value 'root_for';

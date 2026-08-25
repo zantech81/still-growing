@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 type Notification = {
@@ -31,16 +32,45 @@ function notificationCopy(n: Notification): string {
       return chapter
         ? `Someone felt your reflection in Chapter ${chapter}`
         : "Someone felt your reflection";
+    case "root_for":
+      // Anonymous by design -- same privacy framing as the reaction copy
+      // above (never names who), matching the Circle page's own "no one
+      // can reply, message, or reach you here."
+      return "Someone started rooting for you 🌱";
     default:
       return "You have a new notification";
   }
 }
 
+// Only "root_for" and "reaction"/"heart" go anywhere -- every other
+// (current or future) type stays a plain, non-interactive <li>, since
+// there's no destination for it. reflection_id must be present for a
+// reaction link to be built at all (guards against malformed/legacy
+// rows); book_slug is optional/best-effort -- omitted from the link
+// entirely when absent, which falls back to /circle's own "auto-select
+// the sole unlocked book" behavior. That's exactly right for every
+// notification today, and for any stale pre-migration reaction row even
+// after a second book ships (it'll land on the switcher instead of the
+// exact reflection -- acceptable for historical notifications, not worth
+// a data backfill).
+function notificationHref(n: Notification): string | null {
+  if (n.type === "root_for") return "/growing";
+  if (n.type === "reaction" || n.type === "heart") {
+    const reflectionId = n.payload?.reflection_id;
+    if (typeof reflectionId !== "string") return null;
+    const bookSlug = n.payload?.book_slug;
+    const bookParam = typeof bookSlug === "string" ? `book=${bookSlug}&` : "";
+    return `/circle?${bookParam}highlight=${reflectionId}`;
+  }
+  return null;
+}
+
 type Props = {
   onMarkRead: () => void;
+  onClose: () => void;
 };
 
-export default function NotificationPanel({ onMarkRead }: Props) {
+export default function NotificationPanel({ onMarkRead, onClose }: Props) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -74,24 +104,36 @@ export default function NotificationPanel({ onMarkRead }: Props) {
         <div className="px-4 py-6 text-center text-sm text-gray-400">Loading…</div>
       ) : notifications.length === 0 ? (
         <div className="px-4 py-8 text-center text-sm text-gray-400 italic">
-          Nothing yet. When someone feels your reflection, you'll see it here.
+          Nothing yet. When someone feels your reflection or roots for you, you&apos;ll see it here.
         </div>
       ) : (
         <ul className="divide-y divide-pink-pale max-h-80 overflow-y-auto">
-          {notifications.map((n) => (
-            <li
-              key={n.id}
-              className={`px-4 py-3 flex items-start gap-3 ${!n.is_read ? "bg-pink-pale/30" : ""}`}
-            >
-              <span className="text-base leading-none mt-0.5 flex-shrink-0">
-                {n.type === "reaction" || n.type === "heart" ? "♥" : "🔔"}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-ink leading-snug">{notificationCopy(n)}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{relativeTime(n.created_at)}</p>
-              </div>
-            </li>
-          ))}
+          {notifications.map((n) => {
+            const icon = n.type === "reaction" || n.type === "heart" ? "♥" : n.type === "root_for" ? "🌱" : "🔔";
+            const href = notificationHref(n);
+            const content = (
+              <>
+                <span className="text-base leading-none mt-0.5 flex-shrink-0">{icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-ink leading-snug">{notificationCopy(n)}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{relativeTime(n.created_at)}</p>
+                </div>
+              </>
+            );
+            const liClassName = `px-4 py-3 flex items-start gap-3 ${!n.is_read ? "bg-pink-pale/30" : ""}`;
+
+            return (
+              <li key={n.id} className={href ? "" : liClassName}>
+                {href ? (
+                  <Link href={href} onClick={onClose} className={`${liClassName} hover:bg-pink-pale/50 transition-colors`}>
+                    {content}
+                  </Link>
+                ) : (
+                  content
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
