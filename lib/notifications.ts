@@ -3,6 +3,8 @@ import {
   sendEmail,
   reactionEmailHtml,
   reactionEmailText,
+  rootForEmailHtml,
+  rootForEmailText,
   newBookEmailHtml,
   newBookEmailText,
 } from "@/lib/sendgrid";
@@ -61,8 +63,8 @@ export async function notifyReaction(
     const sent = await sendEmail({
       to: author.email,
       subject: "Someone in the Circle felt what you wrote",
-      text: reactionEmailText(reflection.chapter_number),
-      html: reactionEmailHtml(reflection.chapter_number),
+      text: reactionEmailText(reflection.chapter_number, book?.slug, reflectionId),
+      html: reactionEmailHtml(reflection.chapter_number, book?.slug, reflectionId),
     });
 
     if (sent && notif?.id) {
@@ -79,19 +81,49 @@ export async function notifyReaction(
 // ── Root for notification ────────────────────────────────────────────────────
 
 // Called after a fresh "root for" connection insert (not a duplicate --
-// see app/api/connections/route.ts's own 23505 handling). No email,
-// intentionally scoped to the bell/app-badge only for now -- easy to
-// extend later the same way notifyReaction sends one, if wanted.
+// see app/api/connections/route.ts's own 23505 handling). Mirrors
+// notifyReaction's exact shape: look up the recipient's email, skip
+// entirely if there isn't one, insert the notification row, send the
+// email, and mark email_sent only if it actually succeeds.
 // Never throws. All errors are logged.
 export async function notifyRootFor(rootedForUserId: string): Promise<void> {
   try {
     const supabase = createAdminClient();
-    await supabase.from("notifications").insert({
-      user_id: rootedForUserId,
-      type: "root_for",
-      payload: {},
-      email_sent: false,
+
+    const { data: rootedForUser } = await supabase
+      .from("users")
+      .select("email")
+      .eq("id", rootedForUserId)
+      .single();
+
+    if (!rootedForUser?.email) return;
+
+    // Insert notification row first (in-app layer, independent of email).
+    const { data: notif } = await supabase
+      .from("notifications")
+      .insert({
+        user_id: rootedForUserId,
+        type: "root_for",
+        payload: {},
+        email_sent: false,
+      })
+      .select("id")
+      .single();
+
+    // Send email; mark sent only if it succeeds.
+    const sent = await sendEmail({
+      to: rootedForUser.email,
+      subject: "Someone started rooting for you",
+      text: rootForEmailText(),
+      html: rootForEmailHtml(),
     });
+
+    if (sent && notif?.id) {
+      await supabase
+        .from("notifications")
+        .update({ email_sent: true })
+        .eq("id", notif.id);
+    }
   } catch (err) {
     console.error("[notifications] notifyRootFor error:", err);
   }
