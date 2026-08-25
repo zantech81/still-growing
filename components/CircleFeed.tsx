@@ -105,11 +105,13 @@ function SproutIcon() {
 function RootForButton({
   authorName,
   rooting,
+  pending,
   onToggle,
   className,
 }: {
   authorName: string;
   rooting: boolean;
+  pending: boolean;
   onToggle: () => void;
   className?: string;
 }) {
@@ -117,9 +119,10 @@ function RootForButton({
   return (
     <button
       onClick={onToggle}
+      disabled={pending}
       aria-label={label}
       title={label}
-      className={`w-11 h-11 flex items-center justify-center transition-colors shrink-0 ${
+      className={`w-11 h-11 flex items-center justify-center transition-colors shrink-0 disabled:opacity-50 ${
         rooting ? "text-plum" : "text-gray-400 hover:text-plum"
       } ${className ?? ""}`}
     >
@@ -223,6 +226,9 @@ export default function CircleFeed({
   const [reacted, setReacted] = useState<Set<string>>(new Set(myReactionIds));
   const [reported, setReported] = useState<Set<string>>(new Set(myReportedIds));
   const [rootedFor, setRootedFor] = useState<Set<string>>(new Set(myRootedForIds));
+  // Author ids with a root-for toggle currently in flight -- see
+  // toggleRootFor's guard below for why this exists.
+  const [pendingRootFor, setPendingRootFor] = useState<Set<string>>(new Set());
   const [pinned, setPinned] = useState<Set<string>>(new Set(myPinnedIds));
   const [heartCounts, setHeartCounts] = useState<Record<string, number>>(
     Object.fromEntries(initialReflections.map((r) => [r.id, r.hearts_count]))
@@ -362,6 +368,25 @@ export default function CircleFeed({
   }
 
   async function toggleRootFor(authorId: string) {
+    // In-flight guard: without this, a rapid double-click (or a click
+    // fired again because nothing visually changed yet) fires a second
+    // toggleRootFor before the first request's response -- and its own
+    // React re-render -- ever lands. That second call reads `rootedFor`
+    // from the same pre-click snapshot as the first, so it computes the
+    // SAME `adding` value rather than the opposite of what the first
+    // click just (optimistically) did, sending a same-direction request
+    // right on top of it (e.g. root, then a double-click meant as one
+    // "unroot" actually fires unroot-then-root-again). The two requests'
+    // responses can also land out of order over the network regardless.
+    // Both failure modes leave the displayed state disagreeing with the
+    // server's real state until a refresh -- reproduced 2026-08-26 via a
+    // rapid double-click: requests fired POST, DELETE, POST, button
+    // stayed showing "rooted" while the server ended up unrooted. Simplest
+    // fix that closes both failure modes at once: don't allow a second
+    // request to start for this author until the first one has settled.
+    if (pendingRootFor.has(authorId)) return;
+    setPendingRootFor((prev) => new Set(prev).add(authorId));
+
     const adding = !rootedFor.has(authorId);
 
     // Optimistic UI, same pattern as toggleReaction. Since this is a
@@ -375,25 +400,33 @@ export default function CircleFeed({
       return next;
     });
 
-    // book_id is only meaningful (and only sent) on creation -- it
-    // records which book's Circle this connection originated from (see
-    // supabase/migrations/0031_connections_book_id.sql), data capture
-    // only, no UI reads it yet.
-    const res = await fetch("/api/connections", {
-      method: adding ? "POST" : "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(adding ? { rooted_for_id: authorId, book_id: bookId } : { rooted_for_id: authorId }),
-    });
+    try {
+      // book_id is only meaningful (and only sent) on creation -- it
+      // records which book's Circle this connection originated from (see
+      // supabase/migrations/0031_connections_book_id.sql), data capture
+      // only, no UI reads it yet.
+      const res = await fetch("/api/connections", {
+        method: adding ? "POST" : "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(adding ? { rooted_for_id: authorId, book_id: bookId } : { rooted_for_id: authorId }),
+      });
 
-    if (!res.ok) {
-      // Roll back on failure, mirroring the optimistic-update-with-
-      // correction pattern used for reactions (which corrects from the
-      // server's authoritative count instead; there's no count to
-      // correct from here, so a straight revert is the equivalent).
-      setRootedFor((prev) => {
+      if (!res.ok) {
+        // Roll back on failure, mirroring the optimistic-update-with-
+        // correction pattern used for reactions (which corrects from the
+        // server's authoritative count instead; there's no count to
+        // correct from here, so a straight revert is the equivalent).
+        setRootedFor((prev) => {
+          const next = new Set(prev);
+          if (adding) next.delete(authorId);
+          else next.add(authorId);
+          return next;
+        });
+      }
+    } finally {
+      setPendingRootFor((prev) => {
         const next = new Set(prev);
-        if (adding) next.delete(authorId);
-        else next.add(authorId);
+        next.delete(authorId);
         return next;
       });
     }
@@ -586,6 +619,7 @@ export default function CircleFeed({
                     <RootForButton
                       authorName={authorName}
                       rooting={rootedFor.has(r.user_id)}
+                      pending={pendingRootFor.has(r.user_id)}
                       onToggle={() => toggleRootFor(r.user_id)}
                     />
                   )}
