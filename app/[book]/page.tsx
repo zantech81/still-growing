@@ -178,39 +178,6 @@ export default async function JourneyPage({
               Share a reflection after claiming a badge. Your words might land for someone else.
             </p>
           )}
-
-          {/* Give One: only once the journey is actually finished -- no
-              dismiss button, no persistence flag, same "just always
-              there" treatment as the progress/stats cards above it.
-              Copy is the book's own approved "Give One" back-matter
-              text (v12), close to verbatim -- see components/
-              AccountForm.tsx's condensed version of the same copy for
-              the always-available secondary placement. */}
-          {allComplete && (
-            <div className="bg-pink-pale rounded-xl2 p-5 text-center">
-              <p className="font-display text-xl text-plum mb-3">Give a Copy</p>
-              <p className="text-sm text-ink leading-relaxed whitespace-pre-line mb-4">
-                {`If this book found you at the right moment,
-it might find someone else at theirs too.
-Someone who needs permission to begin.
-Someone still finding their feet.
-Someone who just needs to hear
-that falling is allowed.
-
-Sometimes the kindest thing
-you can hand someone is exactly that:
-permission.`}
-              </p>
-              <a
-                href="https://baby.stillgrowing.co/gift?ref=journey-complete"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block bg-pink-deep hover:bg-plum transition-colors text-white font-display px-6 py-3 rounded-xl2"
-              >
-                Give One →
-              </a>
-            </div>
-          )}
         </div>
 
         {/* Chapter list */}
@@ -321,6 +288,31 @@ permission.`}
             );
           })}
         </div>
+
+        {/* Give One: only once the journey is actually finished -- no
+            dismiss button, no persistence flag, same "just always
+            there" treatment as the other cards on this page. Copy is a
+            condensed version of the book's approved "Give One"
+            back-matter -- see components/AccountForm.tsx's own
+            condensed take on the same idea for the always-available
+            secondary placement. */}
+        {allComplete && (
+          <div className="bg-pink-pale rounded-xl2 p-5 text-center mt-8">
+            <p className="font-display text-xl text-plum mb-3">Give a Copy</p>
+            <p className="text-sm text-ink leading-relaxed mb-4">
+              Sometimes the kindest thing you can hand someone is permission to begin.
+              Pass this book on to someone who needs it.
+            </p>
+            <a
+              href="https://baby.stillgrowing.co/gift?ref=journey-complete"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block bg-pink-deep hover:bg-plum transition-colors text-white font-display px-6 py-3 rounded-xl2"
+            >
+              Give One →
+            </a>
+          </div>
+        )}
       </main>
     </AppShell>
   );
