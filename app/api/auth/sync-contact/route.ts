@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { syncSystemeContact } from "@/lib/systeme";
+import { perfLog } from "@/lib/perfLog";
 
 // Fired client-side, un-awaited, from app/auth/welcome/page.tsx (with
 // `keepalive: true` so the request survives that page's own 1s-later
@@ -34,7 +35,7 @@ export async function POST() {
     // systeme_contact_id first), so nothing further to guard here.
     await syncSystemeContact(user.id, user.email ?? "");
   }
-  console.log(`[perf] /api/auth/sync-contact total: ${Date.now() - t0}ms`);
+  await perfLog("/api/auth/sync-contact total", Date.now() - t0);
 
   return NextResponse.json({ ok: true });
 }

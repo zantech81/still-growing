@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { perfLog } from "@/lib/perfLog";
 import AppNav from "./AppNav";
 import BirthdayBanner from "./BirthdayBanner";
 
@@ -16,7 +17,7 @@ export default async function AppShell({ children, requireNickname = true }: Pro
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  console.log(`[perf] AppShell getUser: ${Date.now() - t0}ms`);
+  perfLog("AppShell getUser", Date.now() - t0);
 
   if (!user) {
     return <div className="pt-14">{children}</div>;
@@ -48,7 +49,8 @@ export default async function AppShell({ children, requireNickname = true }: Pro
         .eq("user_id", user.id),
     ]);
 
-  console.log(`[perf] AppShell 4-query Promise.all: ${Date.now() - tQueries}ms (total so far: ${Date.now() - t0}ms)`);
+  perfLog("AppShell 4-query Promise.all", Date.now() - tQueries);
+  perfLog("AppShell total", Date.now() - t0);
 
   if (requireNickname && !profile?.nickname) {
     redirect("/onboarding");
