@@ -10,7 +10,7 @@ export async function perfLog(label: string, ms: number): Promise<void> {
   console.log(`[perf] ${label}: ${ms}ms`);
   const admin = createAdminClient();
   try {
-    await admin.from("_perf_debug").insert({ label, ms });
+    await admin.from("_perf_debug").insert({ label, ms, at_ms: Date.now() });
   } catch {
     // best-effort debug logging only
   }
