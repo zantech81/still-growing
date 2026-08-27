@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import AppShell from "@/components/AppShell";
+import AppShell, { fetchAppShellData } from "@/components/AppShell";
 import LockedBookCard from "@/components/LockedBookCard";
 import { DEFAULT_PLACEHOLDER_TEXT } from "@/lib/comingSoonPlaceholders";
 
@@ -15,6 +15,11 @@ export default async function LibraryPage({
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/library");
+
+  // Fired now, alongside this page's own queries below, instead of left
+  // for AppShell to fetch strictly after this function returns -- see the
+  // comment on fetchAppShellData in components/AppShell.tsx.
+  const appShellDataPromise = fetchAppShellData(supabase, user.id);
 
   const [{ data: collections }, { data: books }, { data: userBooks }, { data: bookUnlocks }] =
     await Promise.all([
@@ -58,7 +63,7 @@ export default async function LibraryPage({
     .filter((col) => col.books.length > 0);
 
   return (
-    <AppShell>
+    <AppShell user={user} dataPromise={appShellDataPromise}>
       <main className="max-w-xl mx-auto px-5 py-8">
         <h1 className="text-3xl mb-0.5">Your Library</h1>
         <p className="text-gray-400 mb-10 italic text-sm">Your journey, your pace.</p>

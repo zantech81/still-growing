@@ -1,47 +1,90 @@
 import { redirect } from "next/navigation";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import AppNav from "./AppNav";
 import BirthdayBanner from "./BirthdayBanner";
 
-type Props = {
-  children: React.ReactNode;
-  requireNickname?: boolean;
+export type AppShellData = {
+  profile: {
+    display_name: string | null;
+    nickname: string | null;
+    avatar_color: string | null;
+    avatar_key: string | null;
+    country_code: string | null;
+    is_admin: boolean | null;
+    birth_month: number | null;
+    birth_day: number | null;
+  } | null;
+  unreadCount: number | null;
+  firstBook: { books: { slug: string } | { slug: string }[] | null } | null;
+  unlockedBookCount: number | null;
 };
 
-export default async function AppShell({ children, requireNickname = true }: Props) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return <div className="pt-14">{children}</div>;
-  }
-
+// Split out so a page that already knows `user` (nearly every route --
+// they call getUser() themselves for their own queries) can kick this off
+// alongside its own data fetching instead of leaving AppShell to start it
+// only after the page's own await chain finishes. Before this, every nav
+// was a strict waterfall: page's getUser() -> page's own queries ->
+// AppShell's getUser() -> AppShell's queries, all in series -- confirmed
+// as a real contributor to both the "every tab nav feels slow" perception
+// issue and the ~5s post-login gap (2026-08-27 investigation). Pass
+// `user` + `dataPromise` (see Props below) to overlap this with the
+// page's own fetch instead; omit both to keep the old self-fetching
+// behavior (used by routes not yet updated to the parallel pattern).
+export async function fetchAppShellData(supabase: SupabaseClient, userId: string): Promise<AppShellData> {
   const [{ data: profile }, { count: unreadCount }, { data: firstBook }, { count: unlockedBookCount }] =
     await Promise.all([
       supabase
         .from("users")
         .select("display_name, nickname, avatar_color, avatar_key, country_code, is_admin, birth_month, birth_day")
-        .eq("id", user.id)
+        .eq("id", userId)
         .single(),
       supabase
         .from("notifications")
         .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("is_read", false),
       supabase
         .from("user_books")
         .select("books(slug)")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("started_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
       supabase
         .from("book_unlocks")
         .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id),
+        .eq("user_id", userId),
     ]);
+
+  return { profile, unreadCount, firstBook, unlockedBookCount };
+}
+
+type Props = {
+  children: React.ReactNode;
+  requireNickname?: boolean;
+  user?: User | null;
+  dataPromise?: Promise<AppShellData>;
+};
+
+export default async function AppShell({ children, requireNickname = true, user: userProp, dataPromise }: Props) {
+  const supabase = createClient();
+
+  let user = userProp;
+  if (user === undefined) {
+    const {
+      data: { user: fetchedUser },
+    } = await supabase.auth.getUser();
+    user = fetchedUser;
+  }
+
+  if (!user) {
+    return <div className="pt-14">{children}</div>;
+  }
+
+  const { profile, unreadCount, firstBook, unlockedBookCount } = dataPromise
+    ? await dataPromise
+    : await fetchAppShellData(supabase, user.id);
 
   if (requireNickname && !profile?.nickname) {
     redirect("/onboarding");

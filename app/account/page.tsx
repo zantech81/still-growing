@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import AppShell from "@/components/AppShell";
+import AppShell, { fetchAppShellData } from "@/components/AppShell";
 import AccountForm from "@/components/AccountForm";
 import SignOutButton from "@/components/SignOutButton";
 
@@ -12,6 +12,11 @@ export default async function AccountPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/account");
 
+  // Fired now, alongside this page's own query below, instead of left for
+  // AppShell to fetch strictly after this function returns -- see the
+  // comment on fetchAppShellData in components/AppShell.tsx.
+  const appShellDataPromise = fetchAppShellData(supabase, user.id);
+
   const { data: profile } = await supabase
     .from("users")
     .select("display_name, country_code, nickname, birth_month, birth_day, avatar_key, avatar_color, is_admin")
@@ -19,7 +24,7 @@ export default async function AccountPage() {
     .single();
 
   return (
-    <AppShell requireNickname={false}>
+    <AppShell requireNickname={false} user={user} dataPromise={appShellDataPromise}>
       <main className="max-w-lg mx-auto px-5 py-8">
         <h1 className="text-3xl mb-10">Account</h1>
         <AccountForm

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getConnectionsSummary, getSharedReflectionCount } from "@/lib/connections";
 import { COUNTRIES } from "@/lib/countries";
 import { pickGrowthQuote } from "@/lib/growthQuotes";
-import AppShell from "@/components/AppShell";
+import AppShell, { fetchAppShellData } from "@/components/AppShell";
 import GrowingTree from "@/components/GrowingTree";
 import ShareButton from "@/components/ShareButton";
 import CountryGrid from "@/components/CountryGrid";
@@ -23,6 +23,11 @@ export default async function GrowingPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/growing");
+
+  // Fired now, alongside this page's own queries below, instead of left
+  // for AppShell to fetch strictly after this function returns -- see the
+  // comment on fetchAppShellData in components/AppShell.tsx.
+  const appShellDataPromise = fetchAppShellData(supabase, user.id);
 
   // A person who both roots for the viewer and whom the viewer roots for
   // counts once, not twice, and no direction is tracked past the count
@@ -102,7 +107,7 @@ export default async function GrowingPage() {
   const ownName = displayName?.nickname ?? displayName?.display_name ?? "my";
 
   return (
-    <AppShell>
+    <AppShell user={user} dataPromise={appShellDataPromise}>
       <main className="max-w-xl mx-auto px-5 py-8 text-center">
         <h1 className="text-3xl mb-1">Growing</h1>
         {sharedReflectionCount > 0 && (

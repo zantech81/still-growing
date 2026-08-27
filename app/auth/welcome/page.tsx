@@ -9,6 +9,11 @@ import { createClient } from "@/lib/supabase/client";
 // requested for marketing video footage, not a fix for any real latency.
 // A brief client-side pause is the only place to put this: the callback
 // route itself is a server redirect with nowhere to render anything.
+// Shortened from 1000ms to 350ms on 2026-08-28: this delay was one of the
+// three confirmed contributors to the ~5s post-login gap (see the
+// 2026-08-27 investigation, logged in components/AppShell.tsx's
+// fetchAppShellData comment) -- still a visible branded beat, but no
+// longer stacking a full second on top of the real network wait.
 export default function AuthWelcomePage() {
   return (
     <Suspense>
@@ -26,7 +31,7 @@ function Welcome() {
     const timer = setTimeout(() => {
       // replace, not push -- the loading beat shouldn't be a back-button stop.
       router.replace(next);
-    }, 1000);
+    }, 350);
     return () => clearTimeout(timer);
   }, [next, router]);
 

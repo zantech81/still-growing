@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import AppShell from "@/components/AppShell";
+import AppShell, { fetchAppShellData } from "@/components/AppShell";
 import CircleFeed, { type ReflectionRow, type ChapterRow } from "@/components/CircleFeed";
 
 type GamConfig = { reflection?: { max_length?: number } };
@@ -24,6 +24,11 @@ export default async function CirclePage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/circle");
 
+  // Fired now, alongside this page's own queries below, instead of left
+  // for AppShell to fetch strictly after this function returns -- see the
+  // comment on fetchAppShellData in components/AppShell.tsx.
+  const appShellDataPromise = fetchAppShellData(supabase, user.id);
+
   // No .limit(1) here anymore: need the full list to know whether a
   // switcher is even necessary. With exactly one unlocked book (today's
   // reality) this still resolves to that same single row either way, so
@@ -37,7 +42,7 @@ export default async function CirclePage({
 
   if (unlocks.length === 0) {
     return (
-      <AppShell>
+      <AppShell user={user} dataPromise={appShellDataPromise}>
         <main className="max-w-xl mx-auto px-5 py-16 text-center">
           <h1 className="text-3xl mb-3">The Circle</h1>
           <p className="text-gray-400 mb-6 italic text-sm">
@@ -68,7 +73,7 @@ export default async function CirclePage({
 
   if (!selected) {
     return (
-      <AppShell>
+      <AppShell user={user} dataPromise={appShellDataPromise}>
         <main className="max-w-xl mx-auto px-5 py-8">
           <h1 className="text-3xl mb-0.5">Choose a Circle</h1>
           <p className="text-gray-400 mb-8 italic text-sm">Pick which book's Circle to open.</p>
@@ -186,7 +191,7 @@ export default async function CirclePage({
   const myRootedForIds = (myConnections ?? []).map((c) => c.rooted_for_id as string);
 
   return (
-    <AppShell>
+    <AppShell user={user} dataPromise={appShellDataPromise}>
       <main className="max-w-xl mx-auto px-5 py-8">
         <div className="mb-8">
           <h1 className="text-3xl mb-0.5">The Circle</h1>

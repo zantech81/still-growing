@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import AppShell from "@/components/AppShell";
+import AppShell, { fetchAppShellData } from "@/components/AppShell";
 
 type UnlockJoin = {
   books: { slug: string; title: string; subtitle: string | null; cover_image_url: string | null };
@@ -20,6 +20,11 @@ export default async function JourneySwitcherPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/journey");
 
+  // Fired now, alongside this page's own query below, instead of left for
+  // AppShell to fetch strictly after this function returns -- see the
+  // comment on fetchAppShellData in components/AppShell.tsx.
+  const appShellDataPromise = fetchAppShellData(supabase, user.id);
+
   const { data: rawUnlocks } = await supabase
     .from("book_unlocks")
     .select("books(slug, title, subtitle, cover_image_url)")
@@ -31,7 +36,7 @@ export default async function JourneySwitcherPage() {
   if (unlocks.length === 1) redirect(`/${unlocks[0].books.slug}`);
 
   return (
-    <AppShell>
+    <AppShell user={user} dataPromise={appShellDataPromise}>
       <main className="max-w-xl mx-auto px-5 py-8">
         <h1 className="text-3xl mb-0.5">Choose your journey</h1>
         <p className="text-gray-400 mb-8 italic text-sm">Pick which book to continue.</p>
