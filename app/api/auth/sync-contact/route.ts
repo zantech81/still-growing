@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { syncSystemeContact } from "@/lib/systeme";
-import { perfLog } from "@/lib/perfLog";
 
 // Fired client-side, un-awaited, from app/auth/welcome/page.tsx (with
 // `keepalive: true` so the request survives that page's own 1s-later
@@ -20,11 +19,6 @@ import { perfLog } from "@/lib/perfLog";
 // is already in place by the time this request lands (see that page's
 // comments for why that ordering has to be explicit, not assumed).
 export async function POST() {
-  // TEMP timing instrumentation -- 2026-08-27 perf investigation, remove
-  // once the ~5s post-login gap is root-caused. Fire-and-forget from the
-  // client (keepalive, unawaited), so this shouldn't be on the critical
-  // path -- logged to confirm that assumption rather than trust it.
-  const t0 = Date.now();
   const supabase = createClient();
   const {
     data: { user },
@@ -35,7 +29,6 @@ export async function POST() {
     // systeme_contact_id first), so nothing further to guard here.
     await syncSystemeContact(user.id, user.email ?? "");
   }
-  await perfLog("/api/auth/sync-contact total", Date.now() - t0);
 
   return NextResponse.json({ ok: true });
 }

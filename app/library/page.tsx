@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { perfLog } from "@/lib/perfLog";
 import AppShell from "@/components/AppShell";
 import LockedBookCard from "@/components/LockedBookCard";
 import { DEFAULT_PLACEHOLDER_TEXT } from "@/lib/comingSoonPlaceholders";
@@ -11,17 +10,12 @@ export default async function LibraryPage({
 }: {
   searchParams: { next?: string | string[] };
 }) {
-  // TEMP timing instrumentation -- 2026-08-27 perf investigation, remove
-  // once the ~5s post-login gap is root-caused.
-  const t0 = Date.now();
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  perfLog("/library getUser", Date.now() - t0);
   if (!user) redirect("/login?next=/library");
 
-  const tQueries = Date.now();
   const [{ data: collections }, { data: books }, { data: userBooks }, { data: bookUnlocks }] =
     await Promise.all([
       supabase
@@ -43,9 +37,6 @@ export default async function LibraryPage({
         .select("book_id")
         .eq("user_id", user.id),
     ]);
-
-  perfLog("/library 4-query Promise.all", Date.now() - tQueries);
-  perfLog("/library total", Date.now() - t0);
 
   const progressMap = Object.fromEntries(
     (userBooks ?? []).map((ub) => [ub.book_id, ub])

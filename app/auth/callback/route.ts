@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { perfLog } from "@/lib/perfLog";
 
 // Completes sign-in for Google OAuth and email magic links, then sends
 // the reader wherever they were headed, including straight into a
@@ -20,7 +19,6 @@ import { perfLog } from "@/lib/perfLog";
 // none of the "does the platform actually keep running this after the
 // response is sent" uncertainty a same-request background task has.
 export async function GET(request: Request) {
-  const t0 = Date.now();
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/library";
@@ -29,12 +27,6 @@ export async function GET(request: Request) {
     const supabase = createClient();
     await supabase.auth.exchangeCodeForSession(code);
   }
-  // TEMP timing instrumentation -- 2026-08-27 perf investigation, remove
-  // once the ~5s post-login gap is root-caused. Awaited here specifically
-  // (unlike other perfLog call sites) because this function returns
-  // immediately after -- nothing downstream would keep it alive long
-  // enough for a fire-and-forget insert to land.
-  await perfLog("/auth/callback exchangeCodeForSession", Date.now() - t0);
 
   // Routed through a brief branded loading page rather than straight to
   // `next` -- see app/auth/welcome/page.tsx (cosmetic, for marketing video
