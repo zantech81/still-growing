@@ -123,6 +123,25 @@ export default function AccountForm({
 
   return (
     <div className="space-y-8">
+      {/* Only entry point into /admin on mobile -- the desktop nav's Admin
+          link (AppNav.tsx) is hidden below the md breakpoint, and there
+          was otherwise no way in from the installed/mobile app besides
+          typing the URL directly. */}
+      {isAdmin && (
+        <Link
+          href="/admin"
+          className="flex items-center justify-between gap-3 bg-pink-pale hover:bg-pink-dusty transition-colors rounded-xl2 px-5 py-4"
+        >
+          <span>
+            <span className="block font-display text-plum">Admin</span>
+            <span className="block text-xs text-pink-deep mt-0.5">
+              Manage members, books, and moderation
+            </span>
+          </span>
+          <span className="text-pink-deep text-lg" aria-hidden="true">→</span>
+        </Link>
+      )}
+
       {/* Read-only display name from auth provider */}
       <div>
         <p className="text-xs uppercase tracking-widest text-gray-400 mb-1">Name</p>
