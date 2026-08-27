@@ -10,12 +10,17 @@ export default async function LibraryPage({
 }: {
   searchParams: { next?: string | string[] };
 }) {
+  // TEMP timing instrumentation -- 2026-08-27 perf investigation, remove
+  // once the ~5s post-login gap is root-caused.
+  const t0 = Date.now();
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  console.log(`[perf] /library getUser: ${Date.now() - t0}ms`);
   if (!user) redirect("/login?next=/library");
 
+  const tQueries = Date.now();
   const [{ data: collections }, { data: books }, { data: userBooks }, { data: bookUnlocks }] =
     await Promise.all([
       supabase
@@ -37,6 +42,8 @@ export default async function LibraryPage({
         .select("book_id")
         .eq("user_id", user.id),
     ]);
+
+  console.log(`[perf] /library 4-query Promise.all: ${Date.now() - tQueries}ms (total so far: ${Date.now() - t0}ms)`);
 
   const progressMap = Object.fromEntries(
     (userBooks ?? []).map((ub) => [ub.book_id, ub])

@@ -19,6 +19,11 @@ import { syncSystemeContact } from "@/lib/systeme";
 // is already in place by the time this request lands (see that page's
 // comments for why that ordering has to be explicit, not assumed).
 export async function POST() {
+  // TEMP timing instrumentation -- 2026-08-27 perf investigation, remove
+  // once the ~5s post-login gap is root-caused. Fire-and-forget from the
+  // client (keepalive, unawaited), so this shouldn't be on the critical
+  // path -- logged to confirm that assumption rather than trust it.
+  const t0 = Date.now();
   const supabase = createClient();
   const {
     data: { user },
@@ -29,6 +34,7 @@ export async function POST() {
     // systeme_contact_id first), so nothing further to guard here.
     await syncSystemeContact(user.id, user.email ?? "");
   }
+  console.log(`[perf] /api/auth/sync-contact total: ${Date.now() - t0}ms`);
 
   return NextResponse.json({ ok: true });
 }

@@ -9,15 +9,20 @@ type Props = {
 };
 
 export default async function AppShell({ children, requireNickname = true }: Props) {
+  // TEMP timing instrumentation -- 2026-08-27 perf investigation, remove
+  // once the ~5s post-login gap is root-caused.
+  const t0 = Date.now();
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  console.log(`[perf] AppShell getUser: ${Date.now() - t0}ms`);
 
   if (!user) {
     return <div className="pt-14">{children}</div>;
   }
 
+  const tQueries = Date.now();
   const [{ data: profile }, { count: unreadCount }, { data: firstBook }, { count: unlockedBookCount }] =
     await Promise.all([
       supabase
@@ -42,6 +47,8 @@ export default async function AppShell({ children, requireNickname = true }: Pro
         .select("id", { count: "exact", head: true })
         .eq("user_id", user.id),
     ]);
+
+  console.log(`[perf] AppShell 4-query Promise.all: ${Date.now() - tQueries}ms (total so far: ${Date.now() - t0}ms)`);
 
   if (requireNickname && !profile?.nickname) {
     redirect("/onboarding");

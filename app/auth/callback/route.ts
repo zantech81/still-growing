@@ -19,6 +19,7 @@ import { createClient } from "@/lib/supabase/server";
 // none of the "does the platform actually keep running this after the
 // response is sent" uncertainty a same-request background task has.
 export async function GET(request: Request) {
+  const t0 = Date.now();
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/library";
@@ -27,6 +28,9 @@ export async function GET(request: Request) {
     const supabase = createClient();
     await supabase.auth.exchangeCodeForSession(code);
   }
+  // TEMP timing instrumentation -- 2026-08-27 perf investigation, remove
+  // once the ~5s post-login gap is root-caused.
+  console.log(`[perf] /auth/callback exchangeCodeForSession: ${Date.now() - t0}ms`);
 
   // Routed through a brief branded loading page rather than straight to
   // `next` -- see app/auth/welcome/page.tsx (cosmetic, for marketing video
