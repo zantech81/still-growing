@@ -25,7 +25,7 @@ export default async function LibraryPage({
         .order("sort_order"),
       supabase
         .from("books")
-        .select("id, slug, title, subtitle, description, cover_image_url, sort_order, collection_id, status, reveal_details, placeholder_text, chapters(id)")
+        .select("id, slug, title, subtitle, description, cover_image_url, sort_order, collection_id, status, reveal_details, placeholder_text, sales_page_url, chapters(id)")
         .in("status", ["published", "coming_soon"])
         .order("sort_order"),
       supabase
@@ -145,6 +145,7 @@ export default async function LibraryPage({
                           subtitle={book.subtitle ?? null}
                           coverImageUrl={book.cover_image_url ?? null}
                           nextUrl={book.slug === nextBookSlug ? nextUrl : null}
+                          salesPageUrl={book.sales_page_url ?? null}
                         />
                       );
                     }

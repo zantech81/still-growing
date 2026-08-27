@@ -9,6 +9,7 @@ type Props = {
   subtitle: string | null;
   coverImageUrl: string | null;
   nextUrl?: string | null; // preserve deep-link destination through the unlock flow
+  salesPageUrl?: string | null;
 };
 
 export default function LockedBookCard({
@@ -17,6 +18,7 @@ export default function LockedBookCard({
   subtitle,
   coverImageUrl,
   nextUrl,
+  salesPageUrl,
 }: Props) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
@@ -145,6 +147,18 @@ export default function LockedBookCard({
                   onClick={(e) => e.stopPropagation()}
                 >
                   Trouble unlocking?
+                </a>
+              </p>
+            )}
+            {status !== "unlocked" && salesPageUrl && (
+              <p className="text-xs text-gray-400 leading-snug">
+                Don't have a code?{" "}
+                <a
+                  href={`${salesPageUrl}?ref=library-locked`}
+                  className="underline hover:text-pink-deep transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Get the book →
                 </a>
               </p>
             )}
