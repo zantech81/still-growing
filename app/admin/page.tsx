@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import MaintenanceToggle from "@/components/admin/MaintenanceToggle";
 
 export default async function AdminDashboard() {
   const supabase = createClient();
@@ -9,11 +10,13 @@ export default async function AdminDashboard() {
     { data: books },
     { count: reflectionCount },
     { count: reactionCount },
+    { data: siteSettings },
   ] = await Promise.all([
     supabase.from("users").select("*", { count: "exact", head: true }).eq("is_demo", false),
     supabase.from("books").select("id, title, status"),
     supabase.from("reflections").select("*", { count: "exact", head: true }).eq("is_hidden", false),
     supabase.from("reactions").select("*", { count: "exact", head: true }),
+    supabase.from("site_settings").select("maintenance_mode, maintenance_message").eq("id", 1).maybeSingle(),
   ]);
 
   const booksByStatus = (books ?? []).reduce<Record<string, number>>(
@@ -31,6 +34,11 @@ export default async function AdminDashboard() {
   return (
     <div>
       <h1 className="text-3xl font-display text-plum mb-8">Dashboard</h1>
+
+      <MaintenanceToggle
+        initialEnabled={siteSettings?.maintenance_mode ?? false}
+        initialMessage={siteSettings?.maintenance_message ?? ""}
+      />
 
       <div className="grid grid-cols-2 gap-4 mb-10 sm:grid-cols-4">
         {stats.map((s) => (

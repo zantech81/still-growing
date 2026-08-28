@@ -26,4 +26,9 @@ export const RESERVED_SLUGS = new Set([
                  // no further slash/extension, and every real request here
                  // is /embeds/<file>.js), reserved purely so a future book
                  // slug can't collide with this static-asset namespace.
+  "maintenance", // Site-wide maintenance page (app/maintenance/page.tsx) --
+                 // same reasoning as "reviews"/"privacy" above, and it must
+                 // stay reachable during maintenance mode itself (see
+                 // middleware.ts's allowlist), so it can't accidentally be
+                 // gated behind a login redirect either.
 ]);
