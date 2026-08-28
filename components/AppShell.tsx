@@ -15,6 +15,7 @@ export type AppShellData = {
     is_admin: boolean | null;
     birth_month: number | null;
     birth_day: number | null;
+    last_seen_grove_at: string | null;
   } | null;
   unreadCount: number | null;
   firstBook: { books: { slug: string } | { slug: string }[] | null } | null;
@@ -24,6 +25,7 @@ export type AppShellData = {
     announcement_message: string | null;
     announcement_link: string | null;
   } | null;
+  latestGrovePostAt: string | null;
 };
 
 // Split out so a page that already knows `user` (nearly every route --
@@ -38,37 +40,65 @@ export type AppShellData = {
 // page's own fetch instead; omit both to keep the old self-fetching
 // behavior (used by routes not yet updated to the parallel pattern).
 export async function fetchAppShellData(supabase: SupabaseClient, userId: string): Promise<AppShellData> {
-  const [{ data: profile }, { count: unreadCount }, { data: firstBook }, { count: unlockedBookCount }, { data: announcement }] =
-    await Promise.all([
-      supabase
-        .from("users")
-        .select("display_name, nickname, avatar_color, avatar_key, country_code, is_admin, birth_month, birth_day")
-        .eq("id", userId)
-        .single(),
-      supabase
-        .from("notifications")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .eq("is_read", false),
-      supabase
-        .from("user_books")
-        .select("books(slug)")
-        .eq("user_id", userId)
-        .order("started_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("book_unlocks")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId),
-      supabase
-        .from("site_settings")
-        .select("announcement_active, announcement_message, announcement_link")
-        .eq("id", 1)
-        .maybeSingle(),
-    ]);
+  const [
+    { data: profile },
+    { count: unreadCount },
+    { data: firstBook },
+    { count: unlockedBookCount },
+    { data: announcement },
+    { data: latestGrovePost },
+  ] = await Promise.all([
+    supabase
+      .from("users")
+      .select(
+        "display_name, nickname, avatar_color, avatar_key, country_code, is_admin, birth_month, birth_day, last_seen_grove_at"
+      )
+      .eq("id", userId)
+      .single(),
+    supabase
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("is_read", false),
+    supabase
+      .from("user_books")
+      .select("books(slug)")
+      .eq("user_id", userId)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("book_unlocks")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId),
+    supabase
+      .from("site_settings")
+      .select("announcement_active, announcement_message, announcement_link")
+      .eq("id", 1)
+      .maybeSingle(),
+    // Grove nav icon's unseen-post signal (components/AppNav.tsx) --
+    // just the latest published post's timestamp, compared against the
+    // viewer's own last_seen_grove_at below. Grove posts don't generate
+    // bell notifications (a separate, not-yet-built item), so this is
+    // its own lightweight check, not reused from the notifications query
+    // above.
+    supabase
+      .from("grove_posts")
+      .select("published_at")
+      .eq("status", "published")
+      .order("published_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
-  return { profile, unreadCount, firstBook, unlockedBookCount, announcement };
+  return {
+    profile,
+    unreadCount,
+    firstBook,
+    unlockedBookCount,
+    announcement,
+    latestGrovePostAt: latestGrovePost?.published_at ?? null,
+  };
 }
 
 type Props = {
@@ -93,7 +123,7 @@ export default async function AppShell({ children, requireNickname = true, user:
     return <div className="pt-14">{children}</div>;
   }
 
-  const { profile, unreadCount, firstBook, unlockedBookCount, announcement } = dataPromise
+  const { profile, unreadCount, firstBook, unlockedBookCount, announcement, latestGrovePostAt } = dataPromise
     ? await dataPromise
     : await fetchAppShellData(supabase, user.id);
 
@@ -118,6 +148,11 @@ export default async function AppShell({ children, requireNickname = true, user:
   const avatarColor = profile?.avatar_color ?? "#E8A0B8";
   const hasUnread = (unreadCount ?? 0) > 0;
   const isAdmin = profile?.is_admin ?? false;
+  // Genuinely newer than what this viewer has already seen, not just
+  // "any posts exist" -- with zero published posts today, latestGrovePostAt
+  // is null and this is correctly false, matching the real current state.
+  const hasNewGrovePost =
+    !!latestGrovePostAt && (!profile?.last_seen_grove_at || latestGrovePostAt > profile.last_seen_grove_at);
 
   const today = new Date();
   const showBirthday =
@@ -139,6 +174,7 @@ export default async function AppShell({ children, requireNickname = true, user:
         journeyHref={journeyHref}
         isAdmin={isAdmin}
         currentUserId={user.id}
+        hasNewGrovePost={hasNewGrovePost}
       />
       {/* pt-14 clears the fixed 56px header; pb-20 clears the 64px mobile bottom nav */}
       <div className="min-h-screen pt-14 pb-20 md:pb-4">

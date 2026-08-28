@@ -35,6 +35,19 @@ export default async function GrovePage() {
 
   const posts: Post[] = rawPosts ?? [];
 
+  // Stamps "last seen the Grove" for the nav icon's unseen-post indicator
+  // (components/AppNav.tsx, computed in components/AppShell.tsx) --
+  // signed-in viewers only, best-effort (a failed stamp just means the
+  // icon might show as new again next visit, not a broken page). Every
+  // visit stamps unconditionally, same "no per-post read tracking"
+  // simplicity as CircleFeed.tsx's own last-visit stamp.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    await supabase.from("users").update({ last_seen_grove_at: new Date().toISOString() }).eq("id", user.id);
+  }
+
   return (
     <main className="max-w-2xl mx-auto px-6 py-16">
       <div className="text-center mb-12">

@@ -16,6 +16,7 @@ type Props = {
   journeyHref: string;
   isAdmin: boolean;
   currentUserId: string;
+  hasNewGrovePost: boolean;
 };
 
 const TABS = [
@@ -75,6 +76,20 @@ function GrowingIcon({ active }: { active: boolean }) {
   );
 }
 
+// A single leaf, deliberately distinct from both GrowingIcon's full tree
+// (the whole community) and CircleFeed.tsx's RootForButton sprout (a
+// person-to-person action) -- this is neither, just "there's something
+// new to read." A vein down the middle keeps it reading as a leaf and
+// not a plain teardrop at 20px.
+function GroveLeafIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 21c0-9 4-15 14-16 1 10-4 16-14 16z" />
+      <path d="M5 21c2-6 6-10 12-14" />
+    </svg>
+  );
+}
+
 // Library/Journey are the personal, static parts of the app (your own
 // reading progress, your own book); Circle/Growing are the community-
 // facing parts that change without the reader doing anything. A first
@@ -108,7 +123,7 @@ function pillClass(label: keyof typeof COMMUNITY_TAB_COLORS, isActive: boolean):
   return `font-semibold rounded-full transition-colors ${isActive ? `${c.solid} text-white` : `${c.soft} ${c.softText}`}`;
 }
 
-export default function AppNav({ name, avatarKey, countryCode, avatarColor, hasUnread, journeyHref, isAdmin, currentUserId }: Props) {
+export default function AppNav({ name, avatarKey, countryCode, avatarColor, hasUnread, journeyHref, isAdmin, currentUserId, hasNewGrovePost }: Props) {
   const pathname = usePathname();
   const [showPanel, setShowPanel] = useState(false);
   const [showDot, setShowDot] = useState(hasUnread);
@@ -209,18 +224,34 @@ export default function AppNav({ name, avatarKey, countryCode, avatarColor, hasU
               )}
             </nav>
 
-            {/* Notification bell */}
+            {/* Grove: always links to /grove, colored the same way the
+                bell is below -- gray by default, pink-deep while there's
+                a genuinely newer published post this viewer hasn't seen
+                (see AppShell.tsx's hasNewGrovePost). Grove posts don't
+                generate bell notifications (a separate, not-yet-built
+                item), so this is its own signal, not reusing hasUnread. */}
+            <Link
+              href="/grove"
+              className={`p-1 transition-colors ${hasNewGrovePost ? "text-pink-deep" : "text-gray-400 hover:text-ink"}`}
+              aria-label="The Grove"
+              title="The Grove"
+            >
+              <GroveLeafIcon />
+            </Link>
+
+            {/* Notification bell: the icon itself changes color when
+                something's unread (2026-08-29 -- replaced a separate dot
+                badge entirely, same underlying showDot state the
+                app-badge effect above already uses, just one visual
+                signal instead of two). */}
             <div ref={bellRef} className="relative">
               <button
                 onClick={() => setShowPanel((p) => !p)}
-                className="relative p-1 text-gray-400 hover:text-ink transition-colors"
+                className={`relative p-1 transition-colors ${showDot ? "text-pink-deep" : "text-gray-400 hover:text-ink"}`}
                 aria-label="Notifications"
                 aria-expanded={showPanel}
               >
                 <BellIcon />
-                {showDot && (
-                  <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-pink-deep rounded-full border-2 border-cream" />
-                )}
               </button>
               {showPanel && (
                 <NotificationPanel
