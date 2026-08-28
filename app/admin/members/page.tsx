@@ -8,6 +8,12 @@ export default async function AdminMembersPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const { data: caller } = await supabase
+    .from("users")
+    .select("super_admin")
+    .eq("id", user?.id ?? "")
+    .maybeSingle();
+
   const { data: members } = await supabase
     .from("users")
     .select("id, display_name, nickname, email, created_at, is_admin, is_suspended")
@@ -36,6 +42,7 @@ export default async function AdminMembersPage() {
           members={members}
           unlocksByUser={unlocksByUser}
           currentAdminId={user?.id ?? ""}
+          viewerIsSuperAdmin={caller?.super_admin ?? false}
         />
       )}
     </div>

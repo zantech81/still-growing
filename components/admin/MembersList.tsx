@@ -16,6 +16,13 @@ type Props = {
   members: Member[];
   unlocksByUser: Record<string, number>;
   currentAdminId: string;
+  // Suspend/delete/ban and admin promote-demote are super_admin-only
+  // (2026-08-28, The Grove work) -- a regular admin viewing this page
+  // doesn't get these controls at all, not just a disabled version of
+  // them. Server-side enforcement lives in the API routes these call
+  // (app/api/admin/suspend-user, delete-user, set-admin), not here --
+  // hiding the button is a UX nicety, not the actual gate.
+  viewerIsSuperAdmin: boolean;
 };
 
 function formatDate(iso: string) {
@@ -36,7 +43,7 @@ type RowState = {
 
 const IDLE: RowState = { mode: "idle", deleteInput: "", error: "" };
 
-export default function MembersList({ members: initialMembers, unlocksByUser, currentAdminId }: Props) {
+export default function MembersList({ members: initialMembers, unlocksByUser, currentAdminId, viewerIsSuperAdmin }: Props) {
   const [members, setMembers] = useState(initialMembers);
   const [rowStates, setRowStates] = useState<Record<string, RowState>>({});
   const [processing, setProcessing] = useState<string | null>(null);
@@ -62,6 +69,24 @@ export default function MembersList({ members: initialMembers, unlocksByUser, cu
         prev.map((m) => (m.id === member.id ? { ...m, is_suspended: !member.is_suspended } : m))
       );
       setRowState(member.id, IDLE);
+    } else {
+      setRowState(member.id, { error: data.error ?? "Something went wrong." });
+    }
+    setProcessing(null);
+  }
+
+  async function doSetAdmin(member: Member) {
+    setProcessing(member.id);
+    const res = await fetch("/api/admin/set-admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: member.id, is_admin: !member.is_admin }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setMembers((prev) =>
+        prev.map((m) => (m.id === member.id ? { ...m, is_admin: !member.is_admin } : m))
+      );
     } else {
       setRowState(member.id, { error: data.error ?? "Something went wrong." });
     }
@@ -144,8 +169,17 @@ export default function MembersList({ members: initialMembers, unlocksByUser, cu
                 <td className="px-5 py-3 text-right">
                   {isSelf ? (
                     <span className="text-xs text-gray-300 italic">You</span>
+                  ) : !viewerIsSuperAdmin ? (
+                    <span className="text-xs text-gray-300 italic">Super-admin only</span>
                   ) : state.mode === "idle" ? (
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-2 flex-wrap">
+                      <button
+                        onClick={() => doSetAdmin(m)}
+                        disabled={isProcessing}
+                        className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:text-ink transition-colors disabled:opacity-50"
+                      >
+                        {isProcessing ? "…" : m.is_admin ? "Demote" : "Promote to admin"}
+                      </button>
                       <button
                         onClick={() => setRowState(m.id, { mode: "confirm-suspend" })}
                         className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:text-ink transition-colors"
@@ -158,6 +192,7 @@ export default function MembersList({ members: initialMembers, unlocksByUser, cu
                       >
                         Delete
                       </button>
+                      {state.error && <p className="text-xs text-pink-deep w-full text-right">{state.error}</p>}
                     </div>
                   ) : state.mode === "confirm-suspend" ? (
                     <div className="text-left inline-block max-w-xs">

@@ -23,8 +23,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: caller } = await supabase.from("users").select("is_admin").eq("id", user.id).single();
-  if (!caller?.is_admin) {
+  // super_admin-only as of 2026-08-28 (The Grove / super-admin tier
+  // work): a regular admin (is_admin true, super_admin false) no longer
+  // gets this. See 0053_super_admin.sql.
+  const { data: caller } = await supabase.from("users").select("super_admin").eq("id", user.id).single();
+  if (!caller?.super_admin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
