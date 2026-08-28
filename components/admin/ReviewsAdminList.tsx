@@ -12,6 +12,7 @@ type Review = {
   is_featured: boolean;
   created_at: string;
   users: { nickname: string | null; display_name: string | null; email: string | null } | null;
+  books: { title: string } | null;
 };
 
 function formatDate(iso: string) {
@@ -85,6 +86,8 @@ export default function ReviewsAdminList({ reviews: initialReviews }: { reviews:
       <div key={r.id} className="bg-white border border-pink-pale rounded-xl2 px-5 py-4">
         <p className="text-xs text-gray-400 mb-2">
           <span className="font-medium text-plum">{authorName}</span>
+          {" · "}
+          {r.books?.title ?? "Unknown book"}
           {" · "}
           {r.rating} star{r.rating === 1 ? "" : "s"}
           {" · "}

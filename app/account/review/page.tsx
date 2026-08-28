@@ -19,6 +19,12 @@ export default async function LeaveReviewPage() {
 
   const defaultName = profile?.nickname ?? profile?.display_name ?? "";
 
+  const { data: books } = await supabase
+    .from("books")
+    .select("id, slug, title")
+    .eq("status", "published")
+    .order("sort_order");
+
   return (
     <AppShell>
       <main className="max-w-lg mx-auto px-5 py-8">
@@ -31,7 +37,7 @@ export default async function LeaveReviewPage() {
         <p className="text-gray-400 mb-8 text-sm">
           Tell other readers what Still Growing has meant to you.
         </p>
-        <ReviewForm defaultDisplayName={defaultName} />
+        <ReviewForm defaultDisplayName={defaultName} books={books ?? []} />
       </main>
     </AppShell>
   );

@@ -19,15 +19,28 @@ function StarIcon({ filled }: { filled: boolean }) {
   );
 }
 
-export default function ReviewForm({ defaultDisplayName }: { defaultDisplayName: string }) {
+type Book = { id: string; slug: string; title: string };
+
+export default function ReviewForm({
+  defaultDisplayName,
+  books,
+}: {
+  defaultDisplayName: string;
+  books: Book[];
+}) {
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [text, setText] = useState("");
   const [displayName, setDisplayName] = useState(defaultDisplayName);
+  const [bookId, setBookId] = useState(books[0]?.id ?? "");
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [error, setError] = useState("");
 
   async function handleSubmit() {
+    if (!bookId) {
+      setError("Choose which book your review is about.");
+      return;
+    }
     if (rating < 1) {
       setError("Choose a star rating first.");
       return;
@@ -43,6 +56,7 @@ export default function ReviewForm({ defaultDisplayName }: { defaultDisplayName:
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        book_id: bookId,
         rating,
         text: text.trim(),
         display_name_override: displayName.trim() || null,
@@ -72,6 +86,23 @@ export default function ReviewForm({ defaultDisplayName }: { defaultDisplayName:
 
   return (
     <div className="space-y-6">
+      <div>
+        <label className="text-xs uppercase tracking-widest text-gray-400 block mb-2">
+          Which book
+        </label>
+        <select
+          value={bookId}
+          onChange={(e) => setBookId(e.target.value)}
+          className="w-full rounded-xl2 border border-gray-200 px-4 py-3 focus:outline-none focus:border-pink-dusty transition-colors bg-white"
+        >
+          {books.map((book) => (
+            <option key={book.id} value={book.id}>
+              {book.title}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div>
         <p className="text-xs uppercase tracking-widest text-gray-400 mb-2">Your rating</p>
         <div className="flex gap-1" onMouseLeave={() => setHoverRating(0)}>

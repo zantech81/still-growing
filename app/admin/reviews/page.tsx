@@ -6,12 +6,21 @@ import ReviewsAdminList from "@/components/admin/ReviewsAdminList";
 export default async function AdminReviewsPage() {
   const supabase = createClient();
 
-  const { data: rawReviews } = await supabase
+  // users!reviews_user_id_fkey, not bare "users(...)": reviews has two FKs
+  // to public.users (user_id and reviewed_by), so an unqualified embed is
+  // ambiguous and PostgREST rejects the whole query (PGRST201) -- silently,
+  // since the error wasn't being checked below, so this page has been
+  // rendering "No reviews yet." regardless of actual content. Pre-existing,
+  // found while adding the book_id join below, not introduced by it.
+  const { data: rawReviews, error: reviewsError } = await supabase
     .from("reviews")
     .select(
-      "id, rating, text, display_name_override, status, is_featured, created_at, users(nickname, display_name, email)"
+      "id, rating, text, display_name_override, status, is_featured, created_at, users!reviews_user_id_fkey(nickname, display_name, email), books(title)"
     )
     .order("created_at", { ascending: false });
+  if (reviewsError) {
+    console.error("Failed to load reviews:", reviewsError);
+  }
 
   type Review = {
     id: string;
@@ -22,6 +31,7 @@ export default async function AdminReviewsPage() {
     is_featured: boolean;
     created_at: string;
     users: { nickname: string | null; display_name: string | null; email: string | null } | null;
+    books: { title: string } | null;
   };
 
   const reviews = (rawReviews ?? []) as unknown as Review[];

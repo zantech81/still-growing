@@ -28,12 +28,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const { rating, text, display_name_override } = body;
+  const { book_id, rating, text, display_name_override } = body;
   if (typeof text !== "string") {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
   if (typeof rating !== "number" || !Number.isInteger(rating) || rating < 1 || rating > 5) {
     return NextResponse.json({ error: "Rating must be a whole number from 1 to 5." }, { status: 400 });
+  }
+  if (typeof book_id !== "string" || !book_id) {
+    return NextResponse.json({ error: "Choose which book your review is about." }, { status: 400 });
+  }
+
+  // Trust nothing from the client beyond "this is a real, published book"
+  // -- same reasoning as every other id the client sends here. A review
+  // about a draft/coming_soon book (or a book_id that doesn't exist at
+  // all) is rejected outright rather than silently accepted.
+  const { data: book } = await supabase
+    .from("books")
+    .select("id")
+    .eq("id", book_id)
+    .eq("status", "published")
+    .maybeSingle();
+  if (!book) {
+    return NextResponse.json({ error: "That book isn't available for reviews." }, { status: 400 });
   }
 
   const trimmed = text.trim();
@@ -94,12 +111,13 @@ export async function POST(request: Request) {
     .from("reviews")
     .insert({
       user_id: user.id,
+      book_id,
       rating,
       text: trimmed,
       display_name_override: nameOverride,
       status: "pending",
     })
-    .select("id, rating, text, display_name_override, status, created_at")
+    .select("id, book_id, rating, text, display_name_override, status, created_at")
     .single();
 
   if (error) {
