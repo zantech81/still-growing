@@ -90,6 +90,22 @@ function GroveLeafIcon() {
   );
 }
 
+// Shield over gear (2026-08-29): a gear reads as generic "settings",
+// which risks being mistaken for a future per-reader preferences icon
+// this app doesn't have yet; a shield reads specifically as
+// oversight/moderation, matching what this app's admin area actually
+// is (self-harm flags, content moderation, member suspension -- not
+// configuration). 20x20 like GroveLeafIcon, not 22x22 like the nav-tab
+// icons -- this sits in the same small-utility-icon row as Grove/the
+// bell, not the primary tab row.
+function AdminShieldIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l7 3v6c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6l7-3z" />
+    </svg>
+  );
+}
+
 // Library/Journey are the personal, static parts of the app (your own
 // reading progress, your own book); Circle/Growing are the community-
 // facing parts that change without the reader doing anything. A first
@@ -214,14 +230,6 @@ export default function AppNav({ name, avatarKey, countryCode, avatarColor, hasU
                   </Link>
                 );
               })}
-              {isAdmin && (
-                <Link
-                  href="/admin"
-                  className="text-gray-300 hover:text-ink transition-colors border-l border-gray-200 pl-6"
-                >
-                  Admin
-                </Link>
-              )}
             </nav>
 
             {/* Grove: always links to /grove, colored the same way the
@@ -260,6 +268,26 @@ export default function AppNav({ name, avatarKey, countryCode, avatarColor, hasU
                 />
               )}
             </div>
+
+            {/* Admin: the single entry point at every screen size now
+                (2026-08-29), replacing a desktop-only text link that had
+                no mobile equivalent -- this row (unlike the tabs nav
+                above) isn't screen-size-gated, so this alone covers what
+                used to need the Account-page admin card (a901e63, left
+                as-is, still a second/harmless path) as a mobile
+                workaround. Static gray/hover, not the gray<->pink-deep
+                pattern Grove/the bell use -- there's no "unseen" state
+                to represent here, so no new tracking. */}
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="p-1 text-gray-300 hover:text-ink transition-colors"
+                aria-label="Admin"
+                title="Admin"
+              >
+                <AdminShieldIcon />
+              </Link>
+            )}
 
             {/* Avatar */}
             <Link
