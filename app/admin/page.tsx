@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import MaintenanceToggle from "@/components/admin/MaintenanceToggle";
+import AnnouncementToggle from "@/components/admin/AnnouncementToggle";
 
 export default async function AdminDashboard() {
   const supabase = createClient();
@@ -16,7 +17,11 @@ export default async function AdminDashboard() {
     supabase.from("books").select("id, title, status"),
     supabase.from("reflections").select("*", { count: "exact", head: true }).eq("is_hidden", false),
     supabase.from("reactions").select("*", { count: "exact", head: true }),
-    supabase.from("site_settings").select("maintenance_mode, maintenance_message").eq("id", 1).maybeSingle(),
+    supabase
+      .from("site_settings")
+      .select("maintenance_mode, maintenance_message, announcement_active, announcement_message, announcement_link")
+      .eq("id", 1)
+      .maybeSingle(),
   ]);
 
   const booksByStatus = (books ?? []).reduce<Record<string, number>>(
@@ -40,6 +45,12 @@ export default async function AdminDashboard() {
         initialMessage={siteSettings?.maintenance_message ?? ""}
       />
 
+      <AnnouncementToggle
+        initialActive={siteSettings?.announcement_active ?? false}
+        initialMessage={siteSettings?.announcement_message ?? ""}
+        initialLink={siteSettings?.announcement_link ?? ""}
+      />
+
       <div className="grid grid-cols-2 gap-4 mb-10 sm:grid-cols-4">
         {stats.map((s) => (
           <div key={s.label} className="bg-white border border-pink-pale rounded-xl2 p-5">
@@ -55,6 +66,7 @@ export default async function AdminDashboard() {
         <QuickLink href="/admin/circle" title="Circle" description="Moderate reader reflections." />
         <QuickLink href="/admin/self-harm" title="Wellbeing" description="Review flagged self-harm language and follow up." />
         <QuickLink href="/admin/reviews" title="Reviews" description="Approve, reject, and feature reader reviews." />
+        <QuickLink href="/admin/grove" title="The Grove" description="Post videos, quotes, and updates beyond the twelve chapters." />
       </div>
 
       {(booksByStatus.draft ?? 0) > 0 && (

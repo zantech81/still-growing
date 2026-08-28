@@ -3,6 +3,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import AppNav from "./AppNav";
 import BirthdayBanner from "./BirthdayBanner";
+import AnnouncementBanner from "./AnnouncementBanner";
 
 export type AppShellData = {
   profile: {
@@ -18,6 +19,11 @@ export type AppShellData = {
   unreadCount: number | null;
   firstBook: { books: { slug: string } | { slug: string }[] | null } | null;
   unlockedBookCount: number | null;
+  announcement: {
+    announcement_active: boolean;
+    announcement_message: string | null;
+    announcement_link: string | null;
+  } | null;
 };
 
 // Split out so a page that already knows `user` (nearly every route --
@@ -32,7 +38,7 @@ export type AppShellData = {
 // page's own fetch instead; omit both to keep the old self-fetching
 // behavior (used by routes not yet updated to the parallel pattern).
 export async function fetchAppShellData(supabase: SupabaseClient, userId: string): Promise<AppShellData> {
-  const [{ data: profile }, { count: unreadCount }, { data: firstBook }, { count: unlockedBookCount }] =
+  const [{ data: profile }, { count: unreadCount }, { data: firstBook }, { count: unlockedBookCount }, { data: announcement }] =
     await Promise.all([
       supabase
         .from("users")
@@ -55,9 +61,14 @@ export async function fetchAppShellData(supabase: SupabaseClient, userId: string
         .from("book_unlocks")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId),
+      supabase
+        .from("site_settings")
+        .select("announcement_active, announcement_message, announcement_link")
+        .eq("id", 1)
+        .maybeSingle(),
     ]);
 
-  return { profile, unreadCount, firstBook, unlockedBookCount };
+  return { profile, unreadCount, firstBook, unlockedBookCount, announcement };
 }
 
 type Props = {
@@ -82,7 +93,7 @@ export default async function AppShell({ children, requireNickname = true, user:
     return <div className="pt-14">{children}</div>;
   }
 
-  const { profile, unreadCount, firstBook, unlockedBookCount } = dataPromise
+  const { profile, unreadCount, firstBook, unlockedBookCount, announcement } = dataPromise
     ? await dataPromise
     : await fetchAppShellData(supabase, user.id);
 
@@ -131,6 +142,12 @@ export default async function AppShell({ children, requireNickname = true, user:
       />
       {/* pt-14 clears the fixed 56px header; pb-20 clears the 64px mobile bottom nav */}
       <div className="min-h-screen pt-14 pb-20 md:pb-4">
+        {announcement?.announcement_active && announcement.announcement_message && (
+          <AnnouncementBanner
+            message={announcement.announcement_message}
+            link={announcement.announcement_link}
+          />
+        )}
         {showBirthday && <BirthdayBanner name={birthdayName} />}
         {children}
       </div>
