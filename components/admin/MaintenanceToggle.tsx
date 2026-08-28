@@ -83,7 +83,18 @@ export default function MaintenanceToggle({ initialEnabled, initialMessage }: Pr
             className="sr-only peer"
           />
           <span className="w-11 h-6 rounded-full bg-gray-200 peer-checked:bg-pink-deep transition-colors relative">
-            <span className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5" />
+            {/* peer-checked: only reaches a true sibling of the checkbox
+                (the track span above), not a descendant nested inside
+                that sibling -- this knob is a grandchild of the label,
+                so peer-checked:translate-x-5 here would never match. See
+                https://tailwindcss.com/docs/hover-focus-and-other-states#styling-based-on-sibling-state
+                Driven from `enabled` directly instead, since the state is
+                already right here. */}
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                enabled ? "translate-x-5" : ""
+              }`}
+            />
           </span>
         </label>
       </div>

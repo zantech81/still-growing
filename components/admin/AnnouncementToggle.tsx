@@ -89,7 +89,14 @@ export default function AnnouncementToggle({ initialActive, initialMessage, init
             className="sr-only peer"
           />
           <span className="w-11 h-6 rounded-full bg-gray-200 peer-checked:bg-pink-deep transition-colors relative">
-            <span className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform peer-checked:translate-x-5" />
+            {/* Same peer-checked limitation as MaintenanceToggle.tsx's
+                identical toggle -- see its comment here for why this is
+                driven from `active` directly instead. */}
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                active ? "translate-x-5" : ""
+              }`}
+            />
           </span>
         </label>
       </div>
