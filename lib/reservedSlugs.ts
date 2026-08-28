@@ -31,4 +31,6 @@ export const RESERVED_SLUGS = new Set([
                  // stay reachable during maintenance mode itself (see
                  // middleware.ts's allowlist), so it can't accidentally be
                  // gated behind a login redirect either.
+  "grove",       // The Grove (app/grove/page.tsx), public admin-authored
+                 // content -- same reasoning as "reviews" above.
 ]);

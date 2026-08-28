@@ -46,6 +46,8 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  // Used for The Grove's markdown post bodies (app/grove/page.tsx) --
+  // pure build-time CSS, no runtime cost.
+  plugins: [require("@tailwindcss/typography")],
 };
 export default config;

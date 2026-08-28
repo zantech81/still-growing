@@ -1,0 +1,76 @@
+export const dynamic = "force-dynamic";
+
+import ReactMarkdown from "react-markdown";
+import { createClient } from "@/lib/supabase/server";
+import GroveMedia from "@/components/GroveMedia";
+
+type Post = {
+  id: string;
+  title: string;
+  body: string;
+  media_url: string | null;
+  published_at: string | null;
+};
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en", { month: "long", day: "numeric", year: "numeric" });
+}
+
+// Public page, no auth, deliberately no AppShell -- same "cold traffic"
+// pattern as app/reviews/page.tsx and app/r/[shareId]/page.tsx. Unlike
+// reviews (which has no direct public RLS select policy and goes
+// through a service-role API route -- see app/api/reviews/public/
+// route.ts's own comment on why), grove_posts DOES have a direct
+// "published or admin" RLS policy, same shape as books/collections
+// (0010_coming_soon_rls.sql) -- nothing in a grove post is sensitive the
+// way a pending/rejected review or its author is, so querying directly
+// here is the simpler, equally-safe choice, not an inconsistency.
+export default async function GrovePage() {
+  const supabase = createClient();
+  const { data: rawPosts } = await supabase
+    .from("grove_posts")
+    .select("id, title, body, media_url, published_at")
+    .eq("status", "published")
+    .order("published_at", { ascending: false });
+
+  const posts: Post[] = rawPosts ?? [];
+
+  return (
+    <main className="max-w-2xl mx-auto px-6 py-16">
+      <div className="text-center mb-12">
+        <p className="text-xs uppercase tracking-widest text-pink-deep mb-3">Still Growing</p>
+        <h1 className="text-4xl mb-2">The Grove</h1>
+        <p className="text-gray-400 italic text-sm">
+          Videos, quotes, and updates beyond the twelve chapters.
+        </p>
+      </div>
+
+      {posts.length === 0 ? (
+        <p className="text-center text-gray-400 italic py-16">Nothing here yet. Check back soon.</p>
+      ) : (
+        <div className="space-y-8">
+          {posts.map((post) => (
+            <article
+              key={post.id}
+              id={post.id}
+              className="bg-white border border-pink-pale rounded-xl2 p-6 scroll-mt-8"
+            >
+              <h2 className="text-2xl font-display text-plum mb-1">{post.title}</h2>
+              {post.published_at && (
+                <p className="text-xs text-gray-400 mb-4">{formatDate(post.published_at)}</p>
+              )}
+              {post.media_url && (
+                <div className="mb-4">
+                  <GroveMedia url={post.media_url} />
+                </div>
+              )}
+              <div className="text-ink leading-relaxed prose prose-sm max-w-none prose-headings:font-display prose-headings:text-plum prose-a:text-pink-deep">
+                <ReactMarkdown>{post.body}</ReactMarkdown>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </main>
+  );
+}

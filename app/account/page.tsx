@@ -40,6 +40,15 @@ export default async function AccountPage() {
         />
         <div className="mt-12 pt-8 border-t border-pink-pale">
           <Link
+            href="/grove"
+            className="block bg-white border border-pink-pale hover:border-pink-dusty rounded-xl2 p-4 transition-colors mb-4"
+          >
+            <p className="font-medium text-plum mb-0.5">The Grove</p>
+            <p className="text-sm text-gray-400">
+              Videos, quotes, and updates beyond the twelve chapters.
+            </p>
+          </Link>
+          <Link
             href="/account/review"
             className="block bg-white border border-pink-pale hover:border-pink-dusty rounded-xl2 p-4 transition-colors mb-8"
           >
