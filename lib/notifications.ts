@@ -21,13 +21,23 @@ export async function notifyReaction(
   try {
     const supabase = createAdminClient();
 
-    // Fetch reflection + author email + book slug (for the bell's
-    // click-through deep link) in one query.
-    const { data: reflection } = await supabase
-      .from("reflections")
-      .select("user_id, chapter_number, book_id, books(slug), users(email)")
-      .eq("id", reflectionId)
-      .single();
+    // Reflection (+ author email, book slug for the bell's deep link) and
+    // the reactor's own public name, fetched in parallel rather than one
+    // after the other -- two independent lookups, no reason to serialize
+    // them.
+    const [{ data: reflection }, { data: reactor }] = await Promise.all([
+      supabase
+        .from("reflections")
+        .select("user_id, chapter_number, book_id, books(slug), users(email)")
+        .eq("id", reflectionId)
+        .single(),
+      // public_profiles, not users directly: same reasoning as
+      // getGrowingTreeExtra in lib/connections.ts -- this is someone
+      // other than an RLS-scoped caller (there is none here, this runs
+      // through the service-role client), and it's the safe public
+      // column subset this is meant to show anyway.
+      supabase.from("public_profiles").select("nickname, display_name").eq("id", reactorUserId).maybeSingle(),
+    ]);
 
     if (!reflection) return;
 
@@ -42,6 +52,7 @@ export async function notifyReaction(
     // as an array -- same pattern as CircleFeed.tsx's getAuthor().
     const booksRaw = reflection.books as unknown;
     const book = (Array.isArray(booksRaw) ? booksRaw[0] : booksRaw) as { slug: string } | null;
+    const reactorName = reactor?.nickname ?? reactor?.display_name ?? "A reader";
 
     // Insert notification row first (in-app layer, independent of email).
     const { data: notif } = await supabase
@@ -63,8 +74,8 @@ export async function notifyReaction(
     const sent = await sendEmail({
       to: author.email,
       subject: "Someone in the Circle felt what you wrote",
-      text: reactionEmailText(reflection.chapter_number, book?.slug, reflectionId),
-      html: reactionEmailHtml(reflection.chapter_number, book?.slug, reflectionId),
+      text: reactionEmailText(reactorName, reactorUserId, reflection.chapter_number, book?.slug, reflectionId),
+      html: reactionEmailHtml(reactorName, reactorUserId, reflection.chapter_number, book?.slug, reflectionId),
     });
 
     if (sent && notif?.id) {
@@ -86,17 +97,20 @@ export async function notifyReaction(
 // entirely if there isn't one, insert the notification row, send the
 // email, and mark email_sent only if it actually succeeds.
 // Never throws. All errors are logged.
-export async function notifyRootFor(rootedForUserId: string): Promise<void> {
+export async function notifyRootFor(rootedForUserId: string, rooterUserId: string): Promise<void> {
   try {
     const supabase = createAdminClient();
 
-    const { data: rootedForUser } = await supabase
-      .from("users")
-      .select("email")
-      .eq("id", rootedForUserId)
-      .single();
+    const [{ data: rootedForUser }, { data: rooter }] = await Promise.all([
+      supabase.from("users").select("email").eq("id", rootedForUserId).single(),
+      // public_profiles, not users -- same reasoning as notifyReaction's
+      // reactor lookup above.
+      supabase.from("public_profiles").select("nickname, display_name").eq("id", rooterUserId).maybeSingle(),
+    ]);
 
     if (!rootedForUser?.email) return;
+
+    const rooterName = rooter?.nickname ?? rooter?.display_name ?? "A reader";
 
     // Insert notification row first (in-app layer, independent of email).
     const { data: notif } = await supabase
@@ -114,8 +128,8 @@ export async function notifyRootFor(rootedForUserId: string): Promise<void> {
     const sent = await sendEmail({
       to: rootedForUser.email,
       subject: "Someone started rooting for you",
-      text: rootForEmailText(),
-      html: rootForEmailHtml(),
+      text: rootForEmailText(rooterName, rooterUserId),
+      html: rootForEmailHtml(rooterName, rooterUserId),
     });
 
     if (sent && notif?.id) {

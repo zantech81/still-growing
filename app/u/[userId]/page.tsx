@@ -13,6 +13,7 @@ import GrowingTreeStats from "@/components/GrowingTreeStats";
 import Avatar from "@/components/Avatar";
 import ShareButton from "@/components/ShareButton";
 import BookPromo from "@/components/BookPromo";
+import ProfileRootFor from "@/components/ProfileRootFor";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stillgrowing.co";
 
@@ -136,25 +137,47 @@ export default async function ProfilePage({ params }: { params: { userId: string
     .eq("id", params.userId)
     .maybeSingle();
 
-  const [growingTreeExtra, sharedReflectionCount, { data: userBooks }, { data: earnedBadges }, { data: pins }, { data: emailRow }] =
-    await Promise.all([
-      getGrowingTreeExtra(supabase, params.userId),
-      getSharedReflectionCount(supabase, params.userId),
-      supabase
-        .from("user_books")
-        .select("book_id, badges_earned, books(title, slug)")
-        .eq("user_id", params.userId),
-      supabase
-        .from("user_badges")
-        .select("book_id, badges(name, badge_image_url)")
-        .eq("user_id", params.userId),
-      supabase
-        .from("profile_pins")
-        .select("reflection_id")
-        .eq("user_id", params.userId)
-        .order("display_order", { ascending: true }),
-      emailLookup,
-    ]);
+  // Only queried when there's actually a viewer who could root for this
+  // profile (signed in, not their own) -- same "skip the query entirely
+  // when it can't matter" pattern as promoBook above, not fetched and
+  // simply unused.
+  const alreadyRootingPromise =
+    user && !isOwnProfile
+      ? supabase
+          .from("connections")
+          .select("rooter_id")
+          .eq("rooter_id", user.id)
+          .eq("rooted_for_id", params.userId)
+          .maybeSingle()
+      : Promise.resolve({ data: null });
+
+  const [
+    growingTreeExtra,
+    sharedReflectionCount,
+    { data: userBooks },
+    { data: earnedBadges },
+    { data: pins },
+    { data: emailRow },
+    { data: existingConnection },
+  ] = await Promise.all([
+    getGrowingTreeExtra(supabase, params.userId),
+    getSharedReflectionCount(supabase, params.userId),
+    supabase
+      .from("user_books")
+      .select("book_id, badges_earned, books(title, slug)")
+      .eq("user_id", params.userId),
+    supabase
+      .from("user_badges")
+      .select("book_id, badges(name, badge_image_url)")
+      .eq("user_id", params.userId),
+    supabase
+      .from("profile_pins")
+      .select("reflection_id")
+      .eq("user_id", params.userId)
+      .order("display_order", { ascending: true }),
+    emailLookup,
+    alreadyRootingPromise,
+  ]);
   const connectionCount = growingTreeExtra.connectionCount;
   const verifiedBuyer = await isVerifiedBuyer(emailRow?.email as string | undefined);
 
@@ -234,6 +257,22 @@ export default async function ProfilePage({ params }: { params: { userId: string
               label="Share my profile"
               shareTitle={`${name} on Still Growing`}
               shareText="Check out my growing tree on Still Growing!"
+            />
+          </div>
+        )}
+
+        {/* Signed-in viewer, someone else's profile: the only entry
+            point for this before was reacting to one of their
+            reflections in the Circle -- hidden entirely for a signed-out
+            visitor (nothing to authenticate the request with) and on
+            your own profile (can't root for yourself, enforced again
+            server-side and at the DB level). */}
+        {user && !isOwnProfile && (
+          <div className="flex justify-center mb-8">
+            <ProfileRootFor
+              targetUserId={params.userId}
+              targetName={name}
+              initialRooting={!!existingConnection}
             />
           </div>
         )}

@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     }
   } else {
     // Only notify on a genuinely fresh insert, not a duplicate.
-    await notifyRootFor(rootedForId);
+    await notifyRootFor(rootedForId, user.id);
   }
 
   return NextResponse.json({ ok: true });

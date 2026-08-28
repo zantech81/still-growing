@@ -87,18 +87,35 @@ const wrap = (body: string) => `<!DOCTYPE html>
 const btn = (href: string, label: string) =>
   `<a href="${href}" style="display:inline-block;margin-top:24px;padding:12px 28px;background:#4A2C3D;color:#ffffff;text-decoration:none;border-radius:12px;font-family:sans-serif;font-size:14px;font-weight:500;">${label}</a>`;
 
+// Nicknames are free-form user input (no character restriction -- see
+// app/api/check-nickname/route.ts, uniqueness-only), and reactionEmailHtml/
+// rootForEmailHtml below now interpolate one directly into HTML. Escaped
+// here rather than left as the only unescaped user-controlled string in
+// this file's templates.
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+const profileLink = (name: string, userId: string) =>
+  `<a href="${siteUrl}/u/${userId}" style="color:#C76A8A;font-weight:bold;text-decoration:none;">${escapeHtml(name)}</a>`;
+
 // bookSlug/reflectionId are optional and only produce the deep link when
 // BOTH are present -- same URL shape NotificationPanel.tsx already builds
 // for the bell (?book=<slug>&highlight=<id>), falling back to the plain
 // /circle link for any notification predating this, or the rare case the
 // book lookup came back empty.
-export function reactionEmailHtml(chapterNumber: number, bookSlug?: string, reflectionId?: string): string {
+export function reactionEmailHtml(
+  reactorName: string,
+  reactorUserId: string,
+  chapterNumber: number,
+  bookSlug?: string,
+  reflectionId?: string
+): string {
   const circleHref =
     bookSlug && reflectionId ? `${siteUrl}/circle?book=${bookSlug}&highlight=${reflectionId}` : `${siteUrl}/circle`;
   return wrap(`
     <h1 style="margin:0 0 16px;font-size:24px;color:#4A2C3D;font-weight:normal;">Someone felt what you wrote.</h1>
     <p style="margin:0;font-size:16px;line-height:1.7;color:#3A3A3A;font-family:sans-serif;">
-      A reader in the Still Growing circle resonated with your reflection from
+      ${profileLink(reactorName, reactorUserId)} felt what you wrote in
       <strong>Chapter&nbsp;${chapterNumber}</strong> and reacted with "I felt this."
     </p>
     <p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#888;font-family:sans-serif;">
@@ -108,17 +125,24 @@ export function reactionEmailHtml(chapterNumber: number, bookSlug?: string, refl
   `);
 }
 
-export function reactionEmailText(chapterNumber: number, bookSlug?: string, reflectionId?: string): string {
+export function reactionEmailText(
+  reactorName: string,
+  reactorUserId: string,
+  chapterNumber: number,
+  bookSlug?: string,
+  reflectionId?: string
+): string {
   const circleHref =
     bookSlug && reflectionId ? `${siteUrl}/circle?book=${bookSlug}&highlight=${reflectionId}` : `${siteUrl}/circle`;
-  return `Someone in the Still Growing circle felt what you wrote in Chapter ${chapterNumber}.\n\nVisit the Circle: ${circleHref}`;
+  const profileHref = `${siteUrl}/u/${reactorUserId}`;
+  return `${reactorName} felt what you wrote in Chapter ${chapterNumber}.\n\nView their profile: ${profileHref}\nVisit the Circle: ${circleHref}`;
 }
 
-export function rootForEmailHtml(): string {
+export function rootForEmailHtml(rooterName: string, rooterUserId: string): string {
   return wrap(`
     <h1 style="margin:0 0 16px;font-size:24px;color:#4A2C3D;font-weight:normal;">Someone started rooting for you.</h1>
     <p style="margin:0;font-size:16px;line-height:1.7;color:#3A3A3A;font-family:sans-serif;">
-      A reader in the Still Growing circle is standing behind your growth.
+      ${profileLink(rooterName, rooterUserId)} is standing behind your growth.
     </p>
     <p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#888;font-family:sans-serif;">
       You're not doing this alone.
@@ -127,8 +151,9 @@ export function rootForEmailHtml(): string {
   `);
 }
 
-export function rootForEmailText(): string {
-  return `Someone in the Still Growing circle started rooting for you.\n\nSee your Growing page: ${siteUrl}/growing`;
+export function rootForEmailText(rooterName: string, rooterUserId: string): string {
+  const profileHref = `${siteUrl}/u/${rooterUserId}`;
+  return `${rooterName} started rooting for you.\n\nView their profile: ${profileHref}\nSee your Growing page: ${siteUrl}/growing`;
 }
 
 export function newBookEmailHtml(bookTitle: string, bookSlug: string): string {

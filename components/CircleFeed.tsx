@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import Avatar from "@/components/Avatar";
 import ReflectionActions from "@/components/ReflectionActions";
 import ShareButton from "@/components/ShareButton";
+import RootForButton from "@/components/RootForButton";
 import { COUNTRIES } from "@/lib/countries";
 
 const COUNTRY_NAMES = new Map(COUNTRIES.map((c) => [c.code, c.name]));
@@ -92,45 +93,6 @@ function ReportButton({
 // "I felt this" (an emotional response to the words) -- "Root for" is a
 // standing show of support for the PERSON, so it reads as its own action
 // rather than a second way to like the same reflection.
-function SproutIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 21V10" />
-      <path d="M12 14c0-4-3-7-7-7 0 4 3 7 7 7z" />
-      <path d="M12 10c0-3.5 2.5-6 6-6 0 3.5-2.5 6-6 6z" />
-    </svg>
-  );
-}
-
-function RootForButton({
-  authorName,
-  rooting,
-  pending,
-  onToggle,
-  className,
-}: {
-  authorName: string;
-  rooting: boolean;
-  pending: boolean;
-  onToggle: () => void;
-  className?: string;
-}) {
-  const label = rooting ? `Stop rooting for ${authorName}` : `Root for ${authorName}`;
-  return (
-    <button
-      onClick={onToggle}
-      disabled={pending}
-      aria-label={label}
-      title={label}
-      className={`w-11 h-11 flex items-center justify-center transition-colors shrink-0 disabled:opacity-50 ${
-        rooting ? "text-plum" : "text-gray-400 hover:text-plum"
-      } ${className ?? ""}`}
-    >
-      <SproutIcon />
-    </button>
-  );
-}
-
 export type ReflectionRow = {
   id: string;
   user_id: string;
