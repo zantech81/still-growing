@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import { createClient } from "@/lib/supabase/server";
 import AppShell, { fetchAppShellData } from "@/components/AppShell";
@@ -52,6 +53,13 @@ export default async function GrovePage() {
 
   const posts: Post[] = rawPosts ?? [];
 
+  // Reads the same in-flight fetchAppShellData call AppShell will use below
+  // rather than firing a second is_admin query -- awaiting a promise a
+  // second time doesn't re-run the underlying Promise.all, it just reads
+  // the already-settled (or already-pending) result, so this is free.
+  const appShellData = appShellDataPromise ? await appShellDataPromise : undefined;
+  const isAdmin = appShellData?.profile?.is_admin ?? false;
+
   // Stamps "last seen the Grove" for the nav icon's unseen-post indicator
   // (components/AppNav.tsx, computed in components/AppShell.tsx) --
   // signed-in viewers only, best-effort (a failed stamp just means the
@@ -69,6 +77,14 @@ export default async function GrovePage() {
           <p className="text-xs uppercase tracking-widest text-pink-deep mb-3">Still Growing</p>
           <h1 className="text-4xl mb-2">The Grove</h1>
           <p className="text-gray-400 italic text-sm">Videos, quotes, and updates from Still Growing.</p>
+          {isAdmin && (
+            <Link
+              href="/admin/grove/new"
+              className="inline-block mt-4 text-xs text-pink-deep border border-pink-pale rounded-full px-3 py-1 hover:bg-pink-pale transition-colors"
+            >
+              + New post
+            </Link>
+          )}
         </div>
 
         {posts.length === 0 ? (
