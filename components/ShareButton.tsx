@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-type ShareKind = "badge" | "progress" | "reflection" | "growing_tree" | "profile";
+type ShareKind = "badge" | "progress" | "reflection" | "growing_tree" | "profile" | "grove";
 
 type Props = {
   type: ShareKind;

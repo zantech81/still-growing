@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { createClient } from "@/lib/supabase/server";
 import AppShell, { fetchAppShellData } from "@/components/AppShell";
 import GroveMedia from "@/components/GroveMedia";
+import GrovePostActions from "@/components/GrovePostActions";
 
 type Post = {
   id: string;
@@ -12,6 +13,7 @@ type Post = {
   body: string;
   media_url: string | null;
   published_at: string | null;
+  hearts_count: number;
 };
 
 function formatDate(iso: string) {
@@ -47,11 +49,26 @@ export default async function GrovePage() {
 
   const { data: rawPosts } = await supabase
     .from("grove_posts")
-    .select("id, title, body, media_url, published_at")
+    .select("id, title, body, media_url, published_at, hearts_count")
     .eq("status", "published")
     .order("published_at", { ascending: false });
 
   const posts: Post[] = rawPosts ?? [];
+
+  // Which of these posts this viewer has already reacted to -- same shape
+  // as app/circle/page.tsx's myReactionIds query for CircleFeed. Depends on
+  // the post ids above so it can't start any earlier, but it still overlaps
+  // with appShellDataPromise's already-in-flight fetch below rather than
+  // adding to a strict waterfall.
+  let reactedIds = new Set<string>();
+  if (user && posts.length > 0) {
+    const { data: myReactions } = await supabase
+      .from("grove_reactions")
+      .select("grove_post_id")
+      .eq("user_id", user.id)
+      .in("grove_post_id", posts.map((p) => p.id));
+    reactedIds = new Set((myReactions ?? []).map((r) => r.grove_post_id as string));
+  }
 
   // Reads the same in-flight fetchAppShellData call AppShell will use below
   // rather than firing a second is_admin query -- awaiting a promise a
@@ -109,6 +126,13 @@ export default async function GrovePage() {
                 <div className="text-ink leading-relaxed prose prose-sm max-w-none prose-headings:font-display prose-headings:text-plum prose-a:text-pink-deep">
                   <ReactMarkdown>{post.body}</ReactMarkdown>
                 </div>
+                <GrovePostActions
+                  postId={post.id}
+                  title={post.title}
+                  initialHeartsCount={post.hearts_count}
+                  initialHasReacted={reactedIds.has(post.id)}
+                  signedIn={!!user}
+                />
               </article>
             ))}
           </div>
