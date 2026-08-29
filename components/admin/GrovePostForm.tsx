@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import GroveEditor from "./grove-editor/GroveEditor";
 
 type Post = {
   id: string;
@@ -18,7 +19,6 @@ export default function GrovePostForm({ post }: { post?: Post }) {
 
   const [title, setTitle] = useState(post?.title ?? "");
   const [body, setBody] = useState(post?.body ?? "");
-  const [mediaUrl, setMediaUrl] = useState(post?.media_url ?? "");
   const [saving, setSaving] = useState<"draft" | "publish" | null>(null);
   const [error, setError] = useState("");
 
@@ -45,7 +45,6 @@ export default function GrovePostForm({ post }: { post?: Post }) {
     const payload = {
       title: title.trim(),
       body: body.trim(),
-      media_url: mediaUrl.trim() || null,
       status: publish ? "published" : "draft",
       ...(nowPublishing ? { published_at: new Date().toISOString() } : {}),
     };
@@ -90,7 +89,10 @@ export default function GrovePostForm({ post }: { post?: Post }) {
   }
 
   return (
-    <div className="space-y-6 max-w-xl">
+    // max-w-2xl, not the old max-w-xl: matches app/grove/page.tsx's own
+    // content column width, so the editor's wrapping roughly previews
+    // how the body will actually read on the public page.
+    <div className="space-y-6 max-w-2xl">
       <Field label="Title" required>
         <input
           type="text"
@@ -101,27 +103,8 @@ export default function GrovePostForm({ post }: { post?: Post }) {
         />
       </Field>
 
-      <Field label="Body" hint="Markdown supported -- headings, bold, links, lists.">
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={10}
-          className={`${input()} font-mono`}
-          placeholder="Write the post..."
-        />
-      </Field>
-
-      <Field
-        label="Media URL"
-        hint="Optional. A YouTube link (any common form) embeds as a player; an image URL (.jpg/.png/.webp/...) shows inline; anything else falls back to a plain link."
-      >
-        <input
-          type="text"
-          value={mediaUrl}
-          onChange={(e) => setMediaUrl(e.target.value)}
-          className={input()}
-          placeholder="https://youtube.com/watch?v=..."
-        />
+      <Field label="Body">
+        <GroveEditor initialValue={body} onChange={setBody} />
       </Field>
 
       {error && <p className="text-sm text-pink-deep">{error}</p>}

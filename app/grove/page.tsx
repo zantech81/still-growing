@@ -1,11 +1,41 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import nextDynamic from "next/dynamic";
+import { isValidElement, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import { createClient } from "@/lib/supabase/server";
 import AppShell, { fetchAppShellData } from "@/components/AppShell";
 import GroveMedia from "@/components/GroveMedia";
 import GrovePostActions from "@/components/GrovePostActions";
+
+// Dynamically imported, not a static import: @mux/mux-player-react is a
+// genuinely heavy client bundle, and most Grove posts won't have an
+// inline video at all. A static import would ship that weight to every
+// /grove visitor regardless; this way it's its own chunk, fetched only
+// when a post's rendered markdown actually contains a mux-video block.
+// Aliased to nextDynamic: this file already exports its own `dynamic`
+// (Next's route-segment force-dynamic config) below, which would
+// otherwise collide with next/dynamic's default import name.
+const GroveVideoBlock = nextDynamic(() => import("@/components/GroveVideoBlock"));
+
+// The one targeted override this page's <ReactMarkdown> needs for inline
+// video: components/admin/grove-editor/muxVideoBlock.ts writes an inline
+// Mux video as a fenced code block, ```mux-video\n{playbackId}\n```, which
+// is plain, valid markdown -- every other formatting case (bold, italic,
+// headings, lists, links, inline images) renders through ReactMarkdown's
+// own defaults completely unchanged. A genuine code block (any other
+// language, or none) still renders as a normal <pre>.
+function MarkdownPre({ children }: { children?: ReactNode }) {
+  const child = Array.isArray(children) ? children[0] : children;
+  if (isValidElement<{ className?: string; children?: ReactNode }>(child) && child.props.className === "language-mux-video") {
+    const playbackId = String(child.props.children ?? "").trim();
+    if (playbackId) {
+      return <GroveVideoBlock playbackId={playbackId} />;
+    }
+  }
+  return <pre>{children}</pre>;
+}
 
 type Post = {
   id: string;
@@ -124,7 +154,7 @@ export default async function GrovePage() {
                   </div>
                 )}
                 <div className="text-ink leading-relaxed prose prose-sm max-w-none prose-headings:font-display prose-headings:text-plum prose-a:text-pink-deep">
-                  <ReactMarkdown>{post.body}</ReactMarkdown>
+                  <ReactMarkdown components={{ pre: MarkdownPre }}>{post.body}</ReactMarkdown>
                 </div>
                 <GrovePostActions
                   postId={post.id}
