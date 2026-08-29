@@ -123,7 +123,7 @@ export default async function GrovePage() {
         <div className="text-center mb-12">
           <p className="text-xs uppercase tracking-widest text-pink-deep mb-3">Still Growing</p>
           <h1 className="text-4xl mb-2">The Grove</h1>
-          <p className="text-gray-400 italic text-sm">Videos, quotes, and updates from Still Growing.</p>
+          <p className="text-gray-400 italic text-sm">Videos, quotes, updates and a simple hello from the Still Growing team</p>
           {isAdmin && (
             <Link
               href="/admin/grove/new"
