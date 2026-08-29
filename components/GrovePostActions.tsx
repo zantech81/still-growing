@@ -58,19 +58,20 @@ export default function GrovePostActions({ postId, title, initialHeartsCount, in
       {/* Direct-URL share mode (components/ShareButton.tsx): the post's
           own anchor (id={post.id} on its <article>, app/grove/page.tsx) is
           already a stable, permanent URL, so there's no shares row to mint.
-          Image decision (Zan): ship with the site's existing default brand
-          image for now, not a dedicated per-post OG card -- that's a real,
-          deliberately-deferred follow-on given the existing
-          /api/og/{type}/{shareId} infra is built around the shares table's
-          minted-share flow, which direct mode intentionally bypasses. Note
-          this only supplies the in-app preview/download/Web-Share image --
-          app/grove/page.tsx has no page-level openGraph metadata yet, so an
-          external platform's own link-preview scrape of /grove#<id> won't
-          show an image at all until that's added separately. */}
+          `?post=${postId}` alongside the same id as a hash: the query
+          param is what the server can actually read (a hash fragment
+          never reaches it) -- app/grove/page.tsx's generateMetadata uses
+          it to show this specific post's title/excerpt in a shared link's
+          preview. The hash is kept too so the existing plain-HTML
+          scroll-to-post behavior (no JS) keeps working exactly as before.
+          Image is the generic /api/og/grove card (lib/og/renderShareImage.tsx's
+          groveCardTree) -- one image for every Grove share, not unique per
+          post; the title/excerpt above is what actually differentiates
+          posts in a chat preview. */}
       <ShareButton
         type="grove"
-        directUrl={`/grove#${postId}`}
-        directImageUrl="/brand/logo-full.png"
+        directUrl={`/grove?post=${postId}#${postId}`}
+        directImageUrl="/api/og/grove"
         iconOnly
         className="ml-auto"
         label="Share this post"

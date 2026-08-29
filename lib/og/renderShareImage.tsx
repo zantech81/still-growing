@@ -565,6 +565,67 @@ export function growingTreeCardTree({
   );
 }
 
+// The Grove's share card (app/api/og/grove/route.ts) -- one generic image
+// reused for every Grove share (the whole page and every individual post
+// alike), not a unique card per post. Grove posts share via direct-URL
+// mode (components/GrovePostActions.tsx), which deliberately bypasses the
+// shares table entirely (see that component's own comment), so unlike
+// every *CardTree above there's no shares-row snapshot to render from --
+// this takes no post-specific data at all. Per-post differentiation in a
+// chat preview comes from app/grove/page.tsx's generateMetadata setting a
+// per-post openGraph title/description instead; this image's job is just
+// "a real branded card," not a bespoke one per post.
+export function groveCardTree({ shareUrl, badgeSrc }: { shareUrl: string; badgeSrc: string }) {
+  return (
+    <div
+      style={{
+        width: WIDTH,
+        height: HEIGHT,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "space-between",
+        backgroundColor: COLORS.greenSoft,
+        padding: "56px 80px",
+      }}
+    >
+      <div
+        style={{
+          fontFamily: "Nunito",
+          fontWeight: 700,
+          fontSize: 20,
+          color: COLORS.pinkDeep,
+          letterSpacing: 3,
+          textTransform: "uppercase",
+        }}
+      >
+        Still Growing
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
+        <div style={{ fontSize: 72 }}>🌱</div>
+        <div style={{ display: "flex", fontFamily: "Playfair Display", fontWeight: 700, fontSize: 64, color: COLORS.plum }}>
+          The Grove
+        </div>
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "Nunito",
+            fontSize: 26,
+            color: COLORS.ink,
+            textAlign: "center",
+            maxWidth: 720,
+          }}
+        >
+          Videos, quotes, updates and a simple hello from the Still Growing team
+        </div>
+      </div>
+
+      <Branding shareUrl={shareUrl} badgeSrc={badgeSrc} />
+    </div>
+  );
+}
+
 // The profile page's own share card (app/api/og/profile/[userId]/route.ts).
 // Unlike the four types above, this doesn't correspond to a shares-table
 // row or a point-in-time snapshot -- /u/[userId] is already a stable,
