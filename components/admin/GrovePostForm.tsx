@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { deleteGrovePost } from "@/lib/grove";
 import GroveEditor from "./grove-editor/GroveEditor";
 
 type Post = {
@@ -21,6 +22,9 @@ export default function GrovePostForm({ post }: { post?: Post }) {
   const [body, setBody] = useState(post?.body ?? "");
   const [saving, setSaving] = useState<"draft" | "publish" | null>(null);
   const [error, setError] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   async function save(publish: boolean) {
     if (!title.trim()) {
@@ -88,6 +92,20 @@ export default function GrovePostForm({ post }: { post?: Post }) {
     router.refresh();
   }
 
+  async function handleDelete() {
+    if (!post) return;
+    setDeleting(true);
+    setDeleteError("");
+    const { error: deleteErr } = await deleteGrovePost(post.id);
+    if (deleteErr) {
+      setDeleting(false);
+      setDeleteError(deleteErr);
+      return;
+    }
+    router.push("/admin/grove");
+    router.refresh();
+  }
+
   return (
     // max-w-2xl, not the old max-w-xl: matches app/grove/page.tsx's own
     // content column width, so the editor's wrapping roughly previews
@@ -132,6 +150,47 @@ export default function GrovePostForm({ post }: { post?: Post }) {
           Cancel
         </button>
       </div>
+
+      {isEdit && (
+        <div className="pt-6 border-t border-gray-100">
+          {!confirmingDelete ? (
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(true)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-pink-deep text-pink-deep hover:bg-pink-pale transition-colors"
+            >
+              Delete post
+            </button>
+          ) : (
+            <div className="max-w-md">
+              <p className="text-xs text-pink-deep mb-2">
+                Delete "{post.title}"? This permanently removes the post, its reactions, and
+                (if it's the current sitewide announcement) turns that announcement off. This
+                cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-pink-deep text-white hover:bg-plum transition-colors disabled:opacity-50"
+                >
+                  {deleting ? "Deleting…" : "Confirm delete"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={deleting}
+                  className="text-xs px-3 py-1.5 text-gray-400 hover:text-ink transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+              {deleteError && <p className="text-xs text-pink-deep mt-2">{deleteError}</p>}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
