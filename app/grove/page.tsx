@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import AppShell, { fetchAppShellData } from "@/components/AppShell";
 import GroveMedia from "@/components/GroveMedia";
+import YouTubeEmbed from "@/components/YouTubeEmbed";
 import GrovePostActions from "@/components/GrovePostActions";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stillgrowing.co";
@@ -102,19 +103,33 @@ export async function generateMetadata({
 // otherwise collide with next/dynamic's default import name.
 const GroveVideoBlock = nextDynamic(() => import("@/components/GroveVideoBlock"));
 
-// The one targeted override this page's <ReactMarkdown> needs for inline
-// video: components/admin/grove-editor/muxVideoBlock.ts writes an inline
-// Mux video as a fenced code block, ```mux-video\n{playbackId}\n```, which
-// is plain, valid markdown -- every other formatting case (bold, italic,
-// headings, lists, links, inline images) renders through ReactMarkdown's
-// own defaults completely unchanged. A genuine code block (any other
-// language, or none) still renders as a normal <pre>.
+// The targeted overrides this page's <ReactMarkdown> needs for inline
+// video: components/admin/grove-editor/muxVideoBlock.ts writes a resolved
+// inline video as a fenced code block -- ```mux-video\n{playbackId}\n```
+// or ```youtube\n{videoId}\n``` -- which is plain, valid markdown; every
+// other formatting case (bold, italic, headings, lists, links, inline
+// images) renders through ReactMarkdown's own defaults completely
+// unchanged. A genuine code block (any other language, or none) still
+// renders as a normal <pre>. The YouTube case reuses the exact iframe
+// embed components/GroveMedia.tsx already uses for the hero media field.
 function MarkdownPre({ children }: { children?: ReactNode }) {
   const child = Array.isArray(children) ? children[0] : children;
-  if (isValidElement<{ className?: string; children?: ReactNode }>(child) && child.props.className === "language-mux-video") {
-    const playbackId = String(child.props.children ?? "").trim();
-    if (playbackId) {
-      return <GroveVideoBlock playbackId={playbackId} />;
+  if (isValidElement<{ className?: string; children?: ReactNode }>(child)) {
+    if (child.props.className === "language-mux-video") {
+      const playbackId = String(child.props.children ?? "").trim();
+      if (playbackId) {
+        return <GroveVideoBlock playbackId={playbackId} />;
+      }
+    }
+    if (child.props.className === "language-youtube") {
+      const videoId = String(child.props.children ?? "").trim();
+      if (videoId) {
+        return (
+          <div className="my-4">
+            <YouTubeEmbed videoId={videoId} />
+          </div>
+        );
+      }
     }
   }
   return <pre>{children}</pre>;

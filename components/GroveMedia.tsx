@@ -1,4 +1,5 @@
 import { extractYouTubeId, isImageUrl } from "@/lib/youtube";
+import YouTubeEmbed from "@/components/YouTubeEmbed";
 
 // Three render paths, nothing more: a recognized YouTube URL embeds as
 // an actual player, a recognized image extension renders inline, and
@@ -7,17 +8,7 @@ import { extractYouTubeId, isImageUrl } from "@/lib/youtube";
 export default function GroveMedia({ url }: { url: string }) {
   const youtubeId = extractYouTubeId(url);
   if (youtubeId) {
-    return (
-      <div className="relative w-full aspect-video rounded-xl2 overflow-hidden bg-black">
-        <iframe
-          src={`https://www.youtube-nocookie.com/embed/${youtubeId}`}
-          title="YouTube video"
-          className="absolute inset-0 w-full h-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-      </div>
-    );
+    return <YouTubeEmbed videoId={youtubeId} />;
   }
 
   if (isImageUrl(url)) {

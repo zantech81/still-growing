@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { NodeViewWrapper, NodeViewContent, type NodeViewProps } from "@tiptap/react";
 import MuxPlayer from "@mux/mux-player-react";
+import { extractYouTubeId } from "@/lib/youtube";
+import YouTubeEmbed from "@/components/YouTubeEmbed";
 
 type Phase =
   | { tag: "idle" }
@@ -11,15 +13,23 @@ type Phase =
   | { tag: "error"; msg: string };
 
 // The NodeView for MuxVideoBlock (see muxVideoBlock.ts) -- an extended
-// CodeBlock whose `language` attr is "mux-video" and whose text content
-// is a Mux playback id. Reuses the exact same direct-to-Mux upload +
-// polling flow as components/admin/MuxUploader.tsx (same
-// /api/admin/mux-upload endpoints), adapted to write its result into a
-// ProseMirror node's text content instead of a form field's React state.
+// CodeBlock whose `language` attr is "video" (unresolved), "mux-video"
+// (resolved, text content is a Mux playback id), or "youtube" (resolved,
+// text content is a YouTube video id). The Mux path reuses the exact same
+// direct-to-Mux upload + polling flow as components/admin/MuxUploader.tsx
+// (same /api/admin/mux-upload endpoints), adapted to write its result
+// into a ProseMirror node's text content instead of a form field's React
+// state; the YouTube path reuses lib/youtube.ts's extractYouTubeId, the
+// same detection already proven by components/GroveMedia.tsx.
 export default function MuxVideoNodeView({ node, editor, getPos, deleteNode }: NodeViewProps) {
-  const isMuxVideo = node.attrs.language === "mux-video";
-  const existingPlaybackId = isMuxVideo ? node.textContent.trim() : "";
+  const language = node.attrs.language;
+  const isVideoBlock = language === "video" || language === "mux-video" || language === "youtube";
+  const existingPlaybackId = language === "mux-video" ? node.textContent.trim() : "";
+  const existingYoutubeId = language === "youtube" ? node.textContent.trim() : "";
   const [phase, setPhase] = useState<Phase>({ tag: "idle" });
+  const [youtubeInputOpen, setYoutubeInputOpen] = useState(false);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [youtubeError, setYoutubeError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -32,10 +42,10 @@ export default function MuxVideoNodeView({ node, editor, getPos, deleteNode }: N
   // A genuine code block -- typed via the inherited ``` input rule, or
   // pasted in from elsewhere -- not this component's concern. No
   // admin-facing toolbar button ever creates one of these (the toolbar's
-  // "insert video" button always sets language: "mux-video" directly), so
+  // "insert video" button always sets language: "video" directly), so
   // this branch exists purely so a stray real code block still renders
   // and edits normally instead of silently becoming a broken video slot.
-  if (!isMuxVideo) {
+  if (!isVideoBlock) {
     return (
       <NodeViewWrapper>
         <pre>
@@ -47,18 +57,39 @@ export default function MuxVideoNodeView({ node, editor, getPos, deleteNode }: N
     );
   }
 
-  // Writes directly into this node's own text-content range rather than
-  // an attr: CodeBlock's built-in markdown serialization (which this node
-  // inherits unchanged, see muxVideoBlock.ts) writes a node's text content
-  // as the fenced block's body and its `language` attr as the fence's
-  // info string -- exactly the on-disk shape this needs
-  // (```mux-video\n{playbackId}\n```), with zero custom markdown code.
-  function replacePlaybackId(playbackId: string) {
+  // Writes into this node's own text-content range AND rewrites its
+  // `language` attr in one transaction, so the node goes from unresolved
+  // ("video", empty) straight to resolved ("mux-video"/"youtube", id) with
+  // no in-between state a re-render could observe as inconsistent.
+  // CodeBlock's built-in markdown serialization (inherited unchanged, see
+  // muxVideoBlock.ts) writes a node's text content as the fenced block's
+  // body and its `language` attr as the fence's info string -- exactly the
+  // on-disk shape this needs, with zero custom markdown code.
+  function resolveAs(resolvedLanguage: "mux-video" | "youtube", content: string) {
     const pos = getPos();
     if (typeof pos !== "number") return;
     const from = pos + 1;
     const to = from + node.textContent.length;
-    editor.view.dispatch(editor.state.tr.insertText(playbackId, from, to));
+    const tr = editor.state.tr;
+    tr.setNodeMarkup(pos, undefined, { ...node.attrs, language: resolvedLanguage });
+    tr.insertText(content, from, to);
+    editor.view.dispatch(tr);
+  }
+
+  function replacePlaybackId(playbackId: string) {
+    resolveAs("mux-video", playbackId);
+  }
+
+  function handleYoutubeSubmit() {
+    const url = youtubeUrl.trim();
+    if (!url) return;
+    const id = extractYouTubeId(url);
+    if (!id) {
+      setYoutubeError("That doesn't look like a YouTube link. Paste a full youtube.com or youtu.be URL.");
+      return;
+    }
+    setYoutubeError("");
+    resolveAs("youtube", id);
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -115,6 +146,31 @@ export default function MuxVideoNodeView({ node, editor, getPos, deleteNode }: N
     }, 4_000);
   }
 
+  if (existingYoutubeId) {
+    return (
+      <NodeViewWrapper className="my-2" contentEditable={false}>
+        {/* Same reasoning as the Mux branch below -- this node's
+            underlying ProseMirror content IS the video id, so a hidden
+            NodeViewContent still has to exist for ProseMirror to manage
+            it, just not one a reader/admin should ever see. */}
+        <div style={{ display: "none" }}>
+          <NodeViewContent />
+        </div>
+        <div className="relative group">
+          <YouTubeEmbed videoId={existingYoutubeId} />
+          <button
+            type="button"
+            onClick={() => deleteNode()}
+            aria-label="Remove video"
+            className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-white/90 text-gray-500 hover:text-pink-deep transition-colors text-sm opacity-0 group-hover:opacity-100"
+          >
+            ×
+          </button>
+        </div>
+      </NodeViewWrapper>
+    );
+  }
+
   if (existingPlaybackId) {
     return (
       <NodeViewWrapper className="my-2" contentEditable={false}>
@@ -160,7 +216,7 @@ export default function MuxVideoNodeView({ node, editor, getPos, deleteNode }: N
       </div>
       <input ref={fileInputRef} type="file" accept="video/*" className="sr-only" onChange={handleFileChange} />
 
-      {phase.tag === "idle" && (
+      {phase.tag === "idle" && !youtubeInputOpen && (
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -171,12 +227,55 @@ export default function MuxVideoNodeView({ node, editor, getPos, deleteNode }: N
           </button>
           <button
             type="button"
+            onClick={() => setYoutubeInputOpen(true)}
+            className="border border-dashed border-gray-300 hover:border-pink-dusty rounded-lg px-5 py-3 text-sm text-gray-400 hover:text-ink transition-colors flex-1 text-left"
+          >
+            + YouTube link
+          </button>
+          <button
+            type="button"
             onClick={() => deleteNode()}
             aria-label="Cancel"
             className="text-xs text-gray-300 hover:text-gray-400 transition-colors"
           >
             Cancel
           </button>
+        </div>
+      )}
+
+      {phase.tag === "idle" && youtubeInputOpen && (
+        <div className="space-y-2 border border-gray-200 rounded-lg p-3">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={youtubeUrl}
+              onChange={(e) => setYoutubeUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleYoutubeSubmit();
+                }
+              }}
+              placeholder="https://youtube.com/watch?v=..."
+              className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:border-pink-dusty"
+              autoFocus
+            />
+            <button type="button" onClick={handleYoutubeSubmit} className="text-xs text-pink-deep hover:underline">
+              Embed
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setYoutubeInputOpen(false);
+                setYoutubeUrl("");
+                setYoutubeError("");
+              }}
+              className="text-xs text-gray-400 hover:text-ink transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+          {youtubeError && <p className="text-xs text-pink-deep">{youtubeError}</p>}
         </div>
       )}
 
