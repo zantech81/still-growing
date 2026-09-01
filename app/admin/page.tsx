@@ -2,6 +2,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import MaintenanceToggle from "@/components/admin/MaintenanceToggle";
 import AnnouncementToggle from "@/components/admin/AnnouncementToggle";
+import UnlockAlertThresholdSetting from "@/components/admin/UnlockAlertThresholdSetting";
+import UnlockClusterAlertBanner from "@/components/admin/UnlockClusterAlertBanner";
+import { getUnverifiedUnlockClusters } from "@/lib/unlockAlerts";
 
 export default async function AdminDashboard() {
   const supabase = createClient();
@@ -12,6 +15,7 @@ export default async function AdminDashboard() {
     { count: reflectionCount },
     { count: reactionCount },
     { data: siteSettings },
+    unlockClusters,
   ] = await Promise.all([
     supabase.from("users").select("*", { count: "exact", head: true }).eq("is_demo", false),
     supabase.from("books").select("id, title, status"),
@@ -19,10 +23,16 @@ export default async function AdminDashboard() {
     supabase.from("reactions").select("*", { count: "exact", head: true }),
     supabase
       .from("site_settings")
-      .select("maintenance_mode, maintenance_message, announcement_active, announcement_message, announcement_link")
+      .select(
+        "maintenance_mode, maintenance_message, announcement_active, announcement_message, announcement_link, unlock_alert_threshold"
+      )
       .eq("id", 1)
       .maybeSingle(),
+    getUnverifiedUnlockClusters(),
   ]);
+
+  const unlockAlertThreshold = siteSettings?.unlock_alert_threshold ?? 10;
+  const abnormalUnlockClusters = unlockClusters.filter((c) => c.unverifiedCount >= unlockAlertThreshold);
 
   const booksByStatus = (books ?? []).reduce<Record<string, number>>(
     (acc, b) => ({ ...acc, [b.status]: (acc[b.status] ?? 0) + 1 }),
@@ -40,6 +50,8 @@ export default async function AdminDashboard() {
     <div>
       <h1 className="text-3xl font-display text-plum mb-8">Dashboard</h1>
 
+      <UnlockClusterAlertBanner clusters={abnormalUnlockClusters} threshold={unlockAlertThreshold} />
+
       <MaintenanceToggle
         initialEnabled={siteSettings?.maintenance_mode ?? false}
         initialMessage={siteSettings?.maintenance_message ?? ""}
@@ -50,6 +62,8 @@ export default async function AdminDashboard() {
         initialMessage={siteSettings?.announcement_message ?? ""}
         initialLink={siteSettings?.announcement_link ?? ""}
       />
+
+      <UnlockAlertThresholdSetting initialThreshold={unlockAlertThreshold} />
 
       <div className="grid grid-cols-2 gap-4 mb-10 sm:grid-cols-4">
         {stats.map((s) => (

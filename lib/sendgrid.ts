@@ -190,3 +190,26 @@ export function birthdayEmailHtml(nickname: string): string {
 export function birthdayEmailText(nickname: string): string {
   return `Happy birthday, ${nickname}!\n\nToday is a good day to remember. You were born ready. Still are.\n\nKeep growing. ${siteUrl}/library`;
 }
+
+// Sent only when a book's trailing-24h unverified-unlock count first
+// crosses into abnormal territory (app/api/cron/unlock-alert's edge-
+// trigger) -- deliberately says "not necessarily piracy" up front. Amazon
+// buyers, gift recipients, and checkout/sign-in email mismatches are
+// always unverified too, so a genuinely abnormal cluster is a prompt to
+// go look, not an accusation.
+export function unlockClusterAlertEmailHtml(bookTitle: string, unverifiedCount: number, bookId: string): string {
+  return wrap(`
+    <h1 style="margin:0 0 16px;font-size:24px;color:#4A2C3D;font-weight:normal;">Unusual unlock activity</h1>
+    <p style="margin:0;font-size:16px;line-height:1.7;color:#3A3A3A;font-family:sans-serif;">
+      <strong>${escapeHtml(bookTitle)}</strong> just saw <strong>${unverifiedCount} unverified unlocks</strong> in the trailing 24 hours -- more than usual.
+    </p>
+    <p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#888;font-family:sans-serif;">
+      This isn't necessarily piracy -- Amazon buyers, gift recipients, and checkout/sign-in email mismatches are always unverified too -- just worth a look.
+    </p>
+    ${btn(`${siteUrl}/admin/books/${bookId}`, "Review this book's unlocks →")}
+  `);
+}
+
+export function unlockClusterAlertEmailText(bookTitle: string, unverifiedCount: number, bookId: string): string {
+  return `Unusual unlock activity for "${bookTitle}": ${unverifiedCount} unverified unlocks in the trailing 24 hours.\n\nThis isn't necessarily piracy -- Amazon buyers, gift recipients, and checkout/sign-in email mismatches are always unverified too -- just worth a look.\n\nReview: ${siteUrl}/admin/books/${bookId}`;
+}
