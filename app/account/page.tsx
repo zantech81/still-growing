@@ -57,7 +57,7 @@ export default async function AccountPage() {
           >
             <p className="font-medium text-plum mb-0.5">The Grove</p>
             <p className="text-sm text-gray-400">
-              Videos, quotes, and updates beyond the twelve chapters.
+              Videos, quotes, and updates for your readers.
             </p>
           </Link>
           <Link
