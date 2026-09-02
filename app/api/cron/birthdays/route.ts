@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendEmail, birthdayEmailHtml, birthdayEmailText } from "@/lib/sendgrid";
+import { sendEmail, getEmailTemplate, renderEmailSubject, birthdayEmailHtml, birthdayEmailText } from "@/lib/sendgrid";
 
 export const runtime = "nodejs";
 
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
   const { data: users, error } = await supabase
     .from("users")
-    .select("id, email, nickname, display_name, last_birthday_email_year")
+    .select("id, email, nickname, display_name, last_birthday_email_year, notify_birthday")
     .eq("birth_month", month)
     .eq("birth_day", day)
     .not("email", "is", null);
@@ -29,20 +29,27 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Query failed" }, { status: 500 });
   }
 
+  // notify_birthday filtered here, before the send loop, not inside it --
+  // same reasoning as notifyGrovePost's recipient filter (lib/notifications.ts).
   const eligible = (users ?? []).filter(
-    (u) => (u.last_birthday_email_year ?? 0) < year
+    (u) => (u.last_birthday_email_year ?? 0) < year && u.notify_birthday !== false
   );
+
+  const fields = await getEmailTemplate("birthday");
 
   let sent = 0;
   let failed = 0;
 
   for (const user of eligible) {
     const name = user.nickname ?? user.display_name ?? "friend";
+    // Substituted per-user, not once for the whole loop: unlike
+    // notifyBookLaunch/notifyGrovePost's shared vars, {{nickname}} here
+    // genuinely differs per recipient.
     const ok = await sendEmail({
       to: user.email as string,
-      subject: `Happy birthday, ${name}!`,
-      html: birthdayEmailHtml(name),
-      text: birthdayEmailText(name),
+      subject: renderEmailSubject(fields, { nickname: name }),
+      html: birthdayEmailHtml(fields, name),
+      text: birthdayEmailText(fields, name),
     });
 
     if (ok) {

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AppShell, { fetchAppShellData } from "@/components/AppShell";
 import AccountForm from "@/components/AccountForm";
+import EmailPreferences from "@/components/EmailPreferences";
 import SignOutButton from "@/components/SignOutButton";
 
 export default async function AccountPage() {
@@ -19,7 +20,9 @@ export default async function AccountPage() {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("display_name, country_code, nickname, birth_month, birth_day, avatar_key, avatar_color, is_admin")
+    .select(
+      "display_name, country_code, nickname, birth_month, birth_day, avatar_key, avatar_color, is_admin, notify_reaction, notify_root_for, notify_new_book, notify_birthday, notify_grove_post"
+    )
     .eq("id", user.id)
     .single();
 
@@ -38,6 +41,15 @@ export default async function AccountPage() {
           avatarColor={profile?.avatar_color ?? "#E8A0B8"}
           isAdmin={profile?.is_admin ?? false}
         />
+        <div className="mt-8">
+          <EmailPreferences
+            initialReaction={profile?.notify_reaction ?? true}
+            initialRootFor={profile?.notify_root_for ?? true}
+            initialNewBook={profile?.notify_new_book ?? true}
+            initialBirthday={profile?.notify_birthday ?? true}
+            initialGrovePost={profile?.notify_grove_post ?? true}
+          />
+        </div>
         <div className="mt-12 pt-8 border-t border-pink-pale">
           <Link
             href="/grove"

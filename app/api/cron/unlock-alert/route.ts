@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUnverifiedUnlockClusters } from "@/lib/unlockAlerts";
-import { sendEmail, unlockClusterAlertEmailHtml, unlockClusterAlertEmailText } from "@/lib/sendgrid";
+import {
+  sendEmail,
+  getEmailTemplate,
+  renderEmailSubject,
+  unlockClusterAlertEmailHtml,
+  unlockClusterAlertEmailText,
+} from "@/lib/sendgrid";
 
 export const runtime = "nodejs";
 
@@ -43,10 +49,11 @@ export async function GET(request: Request) {
 
   const supabase = createAdminClient();
 
-  const [{ data: settings }, { data: books }, clusters] = await Promise.all([
+  const [{ data: settings }, { data: books }, clusters, fields] = await Promise.all([
     supabase.from("site_settings").select("unlock_alert_threshold").eq("id", 1).maybeSingle(),
     supabase.from("books").select("id, unlock_alert_active").eq("status", "published"),
     getUnverifiedUnlockClusters(),
+    getEmailTemplate("unlock_alert"),
   ]);
 
   const threshold = settings?.unlock_alert_threshold ?? 10;
@@ -62,11 +69,14 @@ export async function GET(request: Request) {
     const isAbnormal = cluster.unverifiedCount >= threshold;
 
     if (isAbnormal && !wasActive) {
+      // Substituted per-cluster, not once for the whole loop: bookTitle
+      // differs per book, and this loop can cover more than one.
+      const subjectVars = { bookTitle: cluster.title, unverifiedCount: String(cluster.unverifiedCount) };
       const ok = await sendEmail({
         to: ALERT_RECIPIENT,
-        subject: `Unusual unlock activity: "${cluster.title}"`,
-        html: unlockClusterAlertEmailHtml(cluster.title, cluster.unverifiedCount, cluster.id),
-        text: unlockClusterAlertEmailText(cluster.title, cluster.unverifiedCount, cluster.id),
+        subject: renderEmailSubject(fields, subjectVars),
+        html: unlockClusterAlertEmailHtml(fields, cluster.title, cluster.unverifiedCount, cluster.id),
+        text: unlockClusterAlertEmailText(fields, cluster.title, cluster.unverifiedCount, cluster.id),
       });
 
       await supabase

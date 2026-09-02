@@ -165,42 +165,52 @@ export async function sendBatchEmails(
 }
 
 // ── Email templates ──────────────────────────────────────────────────────────
+//
+// The actual html/text rendering (wrap()/btn(), placeholder substitution,
+// escaping) now lives in lib/emailTemplates.ts -- pure/isomorphic so the
+// admin editor's live preview can import it too. This file's job is
+// just: fetch the admin's saved copy (or the hardcoded default) for a
+// type, and expose the same 12 function names as before so
+// lib/notifications.ts / app/api/cron/birthdays/route.ts don't need a
+// wider rewrite -- each now takes the resolved EmailTemplateFields as
+// its first argument (fetched once per send, not once per recipient --
+// see notifyBookLaunch/notifyGrovePost's own comments for why that
+// matters for a bulk send) instead of reading hardcoded strings.
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stillgrowing.co";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  type EmailTemplateType,
+  type EmailTemplateFields,
+  type EmailTemplateRow,
+  resolveEmailTemplate,
+  renderEmailHtml,
+  renderEmailText,
+  renderEmailSubject,
+  siteUrl,
+} from "@/lib/emailTemplates";
 
-const wrap = (body: string) => `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#FBF7F2;font-family:Georgia,'Playfair Display',serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#FBF7F2;padding:40px 20px;">
-    <tr><td align="center">
-      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;padding:40px;border:1px solid #F7E1E9;">
-        <tr><td>
-          <img src="${siteUrl}/brand/logo-email.png" width="220" height="57" alt="Still Growing" style="display:block;margin:0 0 32px;border:0;" />
-          ${body}
-          <p style="margin:40px 0 0;font-size:12px;color:#b0b0b0;font-family:sans-serif;">
-            You're receiving this because you have an account at <a href="${siteUrl}" style="color:#C76A8A;">stillgrowing.co</a>.
-          </p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
+export type { EmailTemplateFields };
+export { renderEmailSubject };
 
-const btn = (href: string, label: string) =>
-  `<a href="${href}" style="display:inline-block;margin-top:24px;padding:12px 28px;background:#4A2C3D;color:#ffffff;text-decoration:none;border-radius:12px;font-family:sans-serif;font-size:14px;font-weight:500;">${label}</a>`;
-
-// Nicknames are free-form user input (no character restriction -- see
-// app/api/check-nickname/route.ts, uniqueness-only), and reactionEmailHtml/
-// rootForEmailHtml below now interpolate one directly into HTML. Escaped
-// here rather than left as the only unescaped user-controlled string in
-// this file's templates.
-const escapeHtml = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
-const profileLink = (name: string, userId: string) =>
-  `<a href="${siteUrl}/u/${userId}" style="color:#C76A8A;font-weight:bold;text-decoration:none;">${escapeHtml(name)}</a>`;
+// Reads this type's row (falling back to the hardcoded default field by
+// field -- see resolveEmailTemplate) via the service-role client, same
+// as every other read this file's callers already do through
+// createAdminClient(). Never throws: a query failure just means every
+// field falls back to its default, same as a genuinely empty row.
+export async function getEmailTemplate(type: EmailTemplateType): Promise<EmailTemplateFields> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("email_templates")
+      .select("type, subject, heading, body, button_label")
+      .eq("type", type)
+      .maybeSingle();
+    return resolveEmailTemplate(type, data as EmailTemplateRow | null);
+  } catch (err) {
+    console.error(`[sendgrid] getEmailTemplate(${type}) error:`, err);
+    return resolveEmailTemplate(type, null);
+  }
+}
 
 // bookSlug/reflectionId are optional and only produce the deep link when
 // BOTH are present -- same URL shape NotificationPanel.tsx already builds
@@ -208,138 +218,88 @@ const profileLink = (name: string, userId: string) =>
 // /circle link for any notification predating this, or the rare case the
 // book lookup came back empty.
 export function reactionEmailHtml(
+  fields: EmailTemplateFields,
   reactorName: string,
-  reactorUserId: string,
   chapterNumber: number,
   bookSlug?: string,
   reflectionId?: string
 ): string {
   const circleHref =
     bookSlug && reflectionId ? `${siteUrl}/circle?book=${bookSlug}&highlight=${reflectionId}` : `${siteUrl}/circle`;
-  return wrap(`
-    <h1 style="margin:0 0 16px;font-size:24px;color:#4A2C3D;font-weight:normal;">Someone felt what you wrote.</h1>
-    <p style="margin:0;font-size:16px;line-height:1.7;color:#3A3A3A;font-family:sans-serif;">
-      ${profileLink(reactorName, reactorUserId)} felt what you wrote in
-      <strong>Chapter&nbsp;${chapterNumber}</strong> and reacted with "I felt this."
-    </p>
-    <p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#888;font-family:sans-serif;">
-      Your words are landing. Keep going.
-    </p>
-    ${btn(circleHref, "Visit the Circle →")}
-  `);
+  return renderEmailHtml(fields, { reactorName, chapterNumber: String(chapterNumber) }, circleHref);
 }
 
 export function reactionEmailText(
+  fields: EmailTemplateFields,
   reactorName: string,
-  reactorUserId: string,
   chapterNumber: number,
   bookSlug?: string,
   reflectionId?: string
 ): string {
   const circleHref =
     bookSlug && reflectionId ? `${siteUrl}/circle?book=${bookSlug}&highlight=${reflectionId}` : `${siteUrl}/circle`;
-  const profileHref = `${siteUrl}/u/${reactorUserId}`;
-  return `${reactorName} felt what you wrote in Chapter ${chapterNumber}.\n\nView their profile: ${profileHref}\nVisit the Circle: ${circleHref}`;
+  return renderEmailText(fields, { reactorName, chapterNumber: String(chapterNumber) }, circleHref);
 }
 
-export function rootForEmailHtml(rooterName: string, rooterUserId: string): string {
-  return wrap(`
-    <h1 style="margin:0 0 16px;font-size:24px;color:#4A2C3D;font-weight:normal;">Someone started rooting for you.</h1>
-    <p style="margin:0;font-size:16px;line-height:1.7;color:#3A3A3A;font-family:sans-serif;">
-      ${profileLink(rooterName, rooterUserId)} is standing behind your growth.
-    </p>
-    <p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#888;font-family:sans-serif;">
-      You're not doing this alone.
-    </p>
-    ${btn(`${siteUrl}/growing`, "See your Growing page →")}
-  `);
+export function rootForEmailHtml(fields: EmailTemplateFields, rooterName: string): string {
+  return renderEmailHtml(fields, { rooterName }, `${siteUrl}/growing`);
 }
 
-export function rootForEmailText(rooterName: string, rooterUserId: string): string {
-  const profileHref = `${siteUrl}/u/${rooterUserId}`;
-  return `${rooterName} started rooting for you.\n\nView their profile: ${profileHref}\nSee your Growing page: ${siteUrl}/growing`;
+export function rootForEmailText(fields: EmailTemplateFields, rooterName: string): string {
+  return renderEmailText(fields, { rooterName }, `${siteUrl}/growing`);
 }
 
-export function newBookEmailHtml(bookTitle: string, bookSlug: string): string {
-  return wrap(`
-    <h1 style="margin:0 0 16px;font-size:24px;color:#4A2C3D;font-weight:normal;">Something new just arrived.</h1>
-    <p style="margin:0;font-size:16px;line-height:1.7;color:#3A3A3A;font-family:sans-serif;">
-      A new book has been added to your Still Growing library:
-      <strong>${bookTitle}</strong>.
-    </p>
-    <p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#888;font-family:sans-serif;">
-      Head over whenever you're ready.
-    </p>
-    ${btn(`${siteUrl}/library`, "Go to your Library →")}
-  `);
+export function newBookEmailHtml(fields: EmailTemplateFields, bookTitle: string): string {
+  return renderEmailHtml(fields, { bookTitle }, `${siteUrl}/library`);
 }
 
-export function newBookEmailText(bookTitle: string): string {
-  return `A new book has been added to your Still Growing library: ${bookTitle}.\n\nVisit your Library: ${siteUrl}/library`;
+export function newBookEmailText(fields: EmailTemplateFields, bookTitle: string): string {
+  return renderEmailText(fields, { bookTitle }, `${siteUrl}/library`);
 }
 
-export function birthdayEmailHtml(nickname: string): string {
-  return wrap(`
-    <h1 style="margin:0 0 16px;font-size:24px;color:#4A2C3D;font-weight:normal;">Happy birthday, ${nickname}!</h1>
-    <p style="margin:0;font-size:16px;line-height:1.7;color:#3A3A3A;font-family:sans-serif;">
-      Today is a good day to remember. You were born ready. And still are.
-    </p>
-    <p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#888;font-family:sans-serif;">
-      Keep growing. Keep going.
-    </p>
-    ${btn(`${siteUrl}/library`, "Continue your journey →")}
-  `);
+export function birthdayEmailHtml(fields: EmailTemplateFields, nickname: string): string {
+  return renderEmailHtml(fields, { nickname }, `${siteUrl}/library`);
 }
 
-export function birthdayEmailText(nickname: string): string {
-  return `Happy birthday, ${nickname}!\n\nToday is a good day to remember. You were born ready. Still are.\n\nKeep growing. ${siteUrl}/library`;
+export function birthdayEmailText(fields: EmailTemplateFields, nickname: string): string {
+  return renderEmailText(fields, { nickname }, `${siteUrl}/library`);
 }
 
 // Sent only when a book's trailing-24h unverified-unlock count first
 // crosses into abnormal territory (app/api/cron/unlock-alert's edge-
-// trigger) -- deliberately says "not necessarily piracy" up front. Amazon
-// buyers, gift recipients, and checkout/sign-in email mismatches are
-// always unverified too, so a genuinely abnormal cluster is a prompt to
-// go look, not an accusation.
-export function unlockClusterAlertEmailHtml(bookTitle: string, unverifiedCount: number, bookId: string): string {
-  return wrap(`
-    <h1 style="margin:0 0 16px;font-size:24px;color:#4A2C3D;font-weight:normal;">Unusual unlock activity</h1>
-    <p style="margin:0;font-size:16px;line-height:1.7;color:#3A3A3A;font-family:sans-serif;">
-      <strong>${escapeHtml(bookTitle)}</strong> just saw <strong>${unverifiedCount} unverified unlocks</strong> in the trailing 24 hours -- more than usual.
-    </p>
-    <p style="margin:16px 0 0;font-size:15px;line-height:1.7;color:#888;font-family:sans-serif;">
-      This isn't necessarily piracy -- Amazon buyers, gift recipients, and checkout/sign-in email mismatches are always unverified too -- just worth a look.
-    </p>
-    ${btn(`${siteUrl}/admin/books/${bookId}`, "Review this book's unlocks →")}
-  `);
+// trigger) -- the default copy deliberately says "not necessarily
+// piracy" up front. Amazon buyers, gift recipients, and checkout/
+// sign-in email mismatches are always unverified too, so a genuinely
+// abnormal cluster is a prompt to go look, not an accusation.
+export function unlockClusterAlertEmailHtml(
+  fields: EmailTemplateFields,
+  bookTitle: string,
+  unverifiedCount: number,
+  bookId: string
+): string {
+  return renderEmailHtml(fields, { bookTitle, unverifiedCount: String(unverifiedCount) }, `${siteUrl}/admin/books/${bookId}`);
 }
 
-export function unlockClusterAlertEmailText(bookTitle: string, unverifiedCount: number, bookId: string): string {
-  return `Unusual unlock activity for "${bookTitle}": ${unverifiedCount} unverified unlocks in the trailing 24 hours.\n\nThis isn't necessarily piracy -- Amazon buyers, gift recipients, and checkout/sign-in email mismatches are always unverified too -- just worth a look.\n\nReview: ${siteUrl}/admin/books/${bookId}`;
+export function unlockClusterAlertEmailText(
+  fields: EmailTemplateFields,
+  bookTitle: string,
+  unverifiedCount: number,
+  bookId: string
+): string {
+  return renderEmailText(fields, { bookTitle, unverifiedCount: String(unverifiedCount) }, `${siteUrl}/admin/books/${bookId}`);
 }
 
-// Sent to every member when an admin publishes a Grove post (the
-// draft->published transition only -- re-editing an already-published
-// post does not re-send, matching GrovePostForm.tsx's own
+// Sent to every (opted-in) member when an admin publishes a Grove post
+// (the draft->published transition only -- re-editing an already-
+// published post does not re-send, matching GrovePostForm.tsx's own
 // nowPublishing check). The link reuses the exact ?post=<id>#<id> shape
-// already established for sharing/OG (GrovePostActions.tsx, this
-// file's own generateMetadata in app/grove/page.tsx) so it both lands
-// the reader directly on the post and unfurls correctly if forwarded.
-export function groveNewPostEmailHtml(title: string, excerpt: string, postId: string): string {
-  const href = `${siteUrl}/grove?post=${postId}#${postId}`;
-  return wrap(`
-    <h1 style="margin:0 0 8px;font-size:24px;color:#4A2C3D;font-weight:normal;">New in the Grove</h1>
-    <p style="margin:0 0 16px;font-size:18px;line-height:1.4;color:#4A2C3D;font-family:sans-serif;font-weight:600;">
-      ${escapeHtml(title)}
-    </p>
-    <p style="margin:0;font-size:16px;line-height:1.7;color:#3A3A3A;font-family:sans-serif;">
-      ${escapeHtml(excerpt)}
-    </p>
-    ${btn(href, "Read it in the Grove →")}
-  `);
+// already established for sharing/OG (GrovePostActions.tsx, app/grove/
+// page.tsx's generateMetadata) so it both lands the reader directly on
+// the post and unfurls correctly if forwarded.
+export function groveNewPostEmailHtml(fields: EmailTemplateFields, title: string, excerpt: string, postId: string): string {
+  return renderEmailHtml(fields, { title, excerpt }, `${siteUrl}/grove?post=${postId}#${postId}`);
 }
 
-export function groveNewPostEmailText(title: string, excerpt: string, postId: string): string {
-  const href = `${siteUrl}/grove?post=${postId}#${postId}`;
-  return `New in the Grove: ${title}\n\n${excerpt}\n\nRead it: ${href}`;
+export function groveNewPostEmailText(fields: EmailTemplateFields, title: string, excerpt: string, postId: string): string {
+  return renderEmailText(fields, { title, excerpt }, `${siteUrl}/grove?post=${postId}#${postId}`);
 }
