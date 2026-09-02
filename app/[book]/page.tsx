@@ -36,7 +36,7 @@ export default async function JourneyPage({
 
   if (!bookUnlock) redirect(`/library?next=/${params.book}`);
 
-  const [{ data: chapters }, { data: userBook }, { data: myReflections }] =
+  const [{ data: chapters }, { data: userBook }, { data: myReflections }, { data: myReview }] =
     await Promise.all([
       supabase
         .from("chapters")
@@ -54,6 +54,18 @@ export default async function JourneyPage({
         .select("hearts_count")
         .eq("book_id", book.id)
         .eq("user_id", user.id),
+      // Status check-back for the review card below -- no uniqueness
+      // constraint on (user_id, book_id) in reviews (0044_reviews.sql),
+      // so a reader could in principle have more than one; the most
+      // recent one is the one whose status is actually relevant here.
+      supabase
+        .from("reviews")
+        .select("status")
+        .eq("user_id", user.id)
+        .eq("book_id", book.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
   const currentChapter = userBook?.current_chapter ?? 1;
@@ -311,6 +323,77 @@ export default async function JourneyPage({
             >
               Give One →
             </a>
+          </div>
+        )}
+
+        {/* Review prompt: same "just always there once the journey is
+            finished" placement as Give a Copy above, alongside it rather
+            than replacing it -- this is the natural moment (book-specific
+            context, reflective headspace), but /account/review's own
+            always-available link (AccountForm.tsx) stays exactly as it
+            was for a reader who wants to review before finishing.
+            myReview is a pull-based status check-back, not a push
+            notification -- deliberately no new email/bell type for a
+            status change, just what's true the next time this page
+            loads. */}
+        {allComplete && (
+          <div className="bg-blue-soft rounded-xl2 p-5 text-center mt-4">
+            {!myReview && (
+              <>
+                <p className="font-display text-xl text-plum mb-3">Leave a review</p>
+                <p className="text-sm text-ink leading-relaxed mb-4">
+                  Tell other readers what {book.title} has meant to you.
+                </p>
+                <Link
+                  href={`/account/review?book=${book.slug}`}
+                  className="inline-block bg-pink-deep hover:bg-plum transition-colors text-white font-display px-6 py-3 rounded-xl2 mb-3"
+                >
+                  Leave a review →
+                </Link>
+                <p>
+                  <Link href="/reviews" className="text-xs text-pink-deep hover:underline">
+                    Read what others are saying
+                  </Link>
+                </p>
+              </>
+            )}
+            {myReview?.status === "pending" && (
+              <>
+                <p className="font-display text-xl text-plum mb-2">Your review is awaiting approval</p>
+                <p className="text-sm text-ink leading-relaxed mb-4">
+                  Thanks for sharing. We'll take a look before it goes live.
+                </p>
+                <Link href="/reviews" className="text-xs text-pink-deep hover:underline">
+                  Read what others are saying →
+                </Link>
+              </>
+            )}
+            {myReview?.status === "approved" && (
+              <>
+                <p className="font-display text-xl text-plum mb-3">Your review is live</p>
+                <Link
+                  href="/reviews"
+                  className="inline-block bg-pink-deep hover:bg-plum transition-colors text-white font-display px-6 py-3 rounded-xl2"
+                >
+                  Read it on Reviews →
+                </Link>
+              </>
+            )}
+            {myReview?.status === "rejected" && (
+              <>
+                <p className="font-display text-xl text-plum mb-2">Thanks for sharing</p>
+                <p className="text-sm text-ink leading-relaxed mb-4">
+                  This one didn't make it onto the site, but we'd love to hear from you again if
+                  you'd like to write another.
+                </p>
+                <Link
+                  href={`/account/review?book=${book.slug}`}
+                  className="text-xs text-pink-deep hover:underline"
+                >
+                  Write another review →
+                </Link>
+              </>
+            )}
           </div>
         )}
       </main>

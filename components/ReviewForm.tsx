@@ -24,15 +24,24 @@ type Book = { id: string; slug: string; title: string };
 export default function ReviewForm({
   defaultDisplayName,
   books,
+  defaultBookId,
 }: {
   defaultDisplayName: string;
   books: Book[];
+  defaultBookId?: string;
 }) {
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [text, setText] = useState("");
   const [displayName, setDisplayName] = useState(defaultDisplayName);
-  const [bookId, setBookId] = useState(books[0]?.id ?? "");
+  // Preselects the book passed via ?book=<slug> (app/account/review/page.tsx)
+  // when it's a real, valid choice -- otherwise falls back to books[0],
+  // same as before this existed. The dropdown itself is never hidden
+  // either way: a reader arriving from a just-finished book's Journey
+  // page might still want to review a different one.
+  const [bookId, setBookId] = useState(
+    (defaultBookId && books.some((b) => b.id === defaultBookId) ? defaultBookId : books[0]?.id) ?? ""
+  );
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [error, setError] = useState("");
 
