@@ -3,9 +3,23 @@
 // don't need to change. The actual provider is Resend as of 2026-08-18 —
 // see the "Still Growing" project's Resend/Namecheap DNS setup notes.
 const RESEND_URL = "https://api.resend.com/emails";
+const RESEND_BATCH_URL = "https://api.resend.com/emails/batch";
 const FROM_EMAIL = "hello@stillgrowing.co";
 const FROM_NAME = "Still Growing";
 const TIMEOUT_MS = 5_000;
+const BATCH_TIMEOUT_MS = 10_000;
+// Resend's own per-call cap on the batch endpoint (checked against their
+// current docs, 2026-09: "trigger up to 100 batch emails at once").
+const BATCH_CHUNK_SIZE = 100;
+// Resend's default rate limit is 10 requests/second per team (also
+// checked against current docs, not assumed) -- each chunk below is one
+// request regardless of how many recipients it contains, so even
+// back-to-back chunks would need >1000 total recipients per second to
+// approach that limit. This delay is extra headroom, not the only thing
+// keeping this under the limit, so this send never contends with other
+// transactional email (reactions, root-for, book launch) firing at the
+// same moment.
+const BATCH_CHUNK_DELAY_MS = 250;
 
 export interface MailOptions {
   to: string;
@@ -58,6 +72,96 @@ export async function sendEmail({ to, subject, text, html }: MailOptions): Promi
   } finally {
     clearTimeout(timer);
   }
+}
+
+export interface BatchRecipient {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}
+
+// Sends one email per recipient via Resend's real /emails/batch endpoint
+// (an array of up to 100 separate email objects per call, each with its
+// own single-recipient `to`) rather than looping sendEmail() once per
+// user, and rather than grouping multiple real users into one email's
+// `to` array (which would leak every recipient's address to every other
+// recipient in that group -- never do that for a broadcast). Built for
+// lib/notifications.ts's notifyGrovePost specifically because
+// notifyBookLaunch's unthrottled per-user Promise.allSettled fan-out was
+// already a known, flagged gap -- Grove is expected to send far more
+// often than book launches ever did, so this needed real batching from
+// the start rather than copying that pattern. Never throws; returns
+// per-recipient success so the caller can decide what to do with
+// failures (same contract shape as sendEmail's boolean return, just
+// per-recipient).
+export async function sendBatchEmails(
+  recipients: BatchRecipient[]
+): Promise<{ email: string; sent: boolean }[]> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn(`[resend] RESEND_API_KEY not set, skipping batch send to ${recipients.length} recipient(s)`);
+    return recipients.map((r) => ({ email: r.to, sent: false }));
+  }
+
+  const results: { email: string; sent: boolean }[] = [];
+
+  for (let i = 0; i < recipients.length; i += BATCH_CHUNK_SIZE) {
+    const chunk = recipients.slice(i, i + BATCH_CHUNK_SIZE);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), BATCH_TIMEOUT_MS);
+
+    try {
+      const res = await fetch(RESEND_BATCH_URL, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(
+          chunk.map((r) => ({
+            from: `${FROM_NAME} <${FROM_EMAIL}>`,
+            to: [r.to],
+            subject: r.subject,
+            text: r.text,
+            html: r.html,
+          }))
+        ),
+      });
+
+      if (res.ok) {
+        // A 2xx here means Resend accepted the whole chunk (its batch
+        // response is one queued-id per email, in request order) --
+        // there's no documented partial-failure-within-a-2xx shape for
+        // this endpoint, so a successful call marks every email in that
+        // chunk sent; any real per-message bounce/failure would surface
+        // later via Resend's own delivery webhooks/dashboard, same as
+        // any other email sent through this file today.
+        chunk.forEach((r) => results.push({ email: r.to, sent: true }));
+      } else {
+        const errBody = await res.text().catch(() => "(unreadable)");
+        console.error(`[resend] Batch send (${chunk.length} recipients) failed ${res.status}: ${errBody}`);
+        chunk.forEach((r) => results.push({ email: r.to, sent: false }));
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        console.error(`[resend] Batch send (${chunk.length} recipients) timed out after ${BATCH_TIMEOUT_MS / 1000}s`);
+      } else {
+        console.error(`[resend] Batch send (${chunk.length} recipients) errored:`, err);
+      }
+      chunk.forEach((r) => results.push({ email: r.to, sent: false }));
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (i + BATCH_CHUNK_SIZE < recipients.length) {
+      await new Promise((resolve) => setTimeout(resolve, BATCH_CHUNK_DELAY_MS));
+    }
+  }
+
+  return results;
 }
 
 // ── Email templates ──────────────────────────────────────────────────────────
@@ -212,4 +316,30 @@ export function unlockClusterAlertEmailHtml(bookTitle: string, unverifiedCount: 
 
 export function unlockClusterAlertEmailText(bookTitle: string, unverifiedCount: number, bookId: string): string {
   return `Unusual unlock activity for "${bookTitle}": ${unverifiedCount} unverified unlocks in the trailing 24 hours.\n\nThis isn't necessarily piracy -- Amazon buyers, gift recipients, and checkout/sign-in email mismatches are always unverified too -- just worth a look.\n\nReview: ${siteUrl}/admin/books/${bookId}`;
+}
+
+// Sent to every member when an admin publishes a Grove post (the
+// draft->published transition only -- re-editing an already-published
+// post does not re-send, matching GrovePostForm.tsx's own
+// nowPublishing check). The link reuses the exact ?post=<id>#<id> shape
+// already established for sharing/OG (GrovePostActions.tsx, this
+// file's own generateMetadata in app/grove/page.tsx) so it both lands
+// the reader directly on the post and unfurls correctly if forwarded.
+export function groveNewPostEmailHtml(title: string, excerpt: string, postId: string): string {
+  const href = `${siteUrl}/grove?post=${postId}#${postId}`;
+  return wrap(`
+    <h1 style="margin:0 0 8px;font-size:24px;color:#4A2C3D;font-weight:normal;">New in the Grove</h1>
+    <p style="margin:0 0 16px;font-size:18px;line-height:1.4;color:#4A2C3D;font-family:sans-serif;font-weight:600;">
+      ${escapeHtml(title)}
+    </p>
+    <p style="margin:0;font-size:16px;line-height:1.7;color:#3A3A3A;font-family:sans-serif;">
+      ${escapeHtml(excerpt)}
+    </p>
+    ${btn(href, "Read it in the Grove →")}
+  `);
+}
+
+export function groveNewPostEmailText(title: string, excerpt: string, postId: string): string {
+  const href = `${siteUrl}/grove?post=${postId}#${postId}`;
+  return `New in the Grove: ${title}\n\n${excerpt}\n\nRead it: ${href}`;
 }

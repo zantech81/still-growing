@@ -1,13 +1,17 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   sendEmail,
+  sendBatchEmails,
   reactionEmailHtml,
   reactionEmailText,
   rootForEmailHtml,
   rootForEmailText,
   newBookEmailHtml,
   newBookEmailText,
+  groveNewPostEmailHtml,
+  groveNewPostEmailText,
 } from "@/lib/sendgrid";
+import { excerptFromMarkdown } from "@/lib/grove";
 
 // ── Reaction notification ────────────────────────────────────────────────────
 
@@ -196,5 +200,53 @@ export async function notifyBookLaunch(bookId: string): Promise<void> {
     );
   } catch (err) {
     console.error("[notifications] notifyBookLaunch error:", err);
+  }
+}
+
+// ── Grove post notification ──────────────────────────────────────────────────
+
+// Called when an admin publishes a Grove post (the draft->published
+// transition only -- GrovePostForm.tsx's own nowPublishing check already
+// ensures re-editing an already-published post never calls this again).
+// Email only, deliberately: no `notifications` row is inserted here (Grove
+// posts stay out of the in-app bell entirely -- the header's Grove leaf
+// icon + last_seen_grove_at already serve as the unread indicator, and
+// grove_reactions stay "purely statistical" per Zan's original
+// instruction, neither in scope here). Uses sendBatchEmails
+// (lib/sendgrid.ts) rather than notifyBookLaunch's unthrottled
+// per-user Promise.allSettled fan-out above -- Grove is expected to
+// become the primary, far more frequent update channel, so this needed
+// real batching from the start. Never throws. All errors are logged.
+export async function notifyGrovePost(postId: string): Promise<void> {
+  try {
+    const supabase = createAdminClient();
+
+    const [{ data: post }, { data: users }] = await Promise.all([
+      supabase.from("grove_posts").select("title, body").eq("id", postId).single(),
+      supabase.from("users").select("email"),
+    ]);
+
+    if (!post || !users?.length) return;
+
+    const excerpt = excerptFromMarkdown(post.body, 200);
+    const recipients = users
+      .map((u) => u.email as string | null)
+      .filter((email): email is string => !!email)
+      .map((email) => ({
+        to: email,
+        subject: `New in the Grove: ${post.title}`,
+        text: groveNewPostEmailText(post.title, excerpt, postId),
+        html: groveNewPostEmailHtml(post.title, excerpt, postId),
+      }));
+
+    if (recipients.length === 0) return;
+
+    const results = await sendBatchEmails(recipients);
+    const failed = results.filter((r) => !r.sent).length;
+    if (failed > 0) {
+      console.error(`[notifications] notifyGrovePost: ${failed}/${results.length} emails failed for post ${postId}`);
+    }
+  } catch (err) {
+    console.error("[notifications] notifyGrovePost error:", err);
   }
 }

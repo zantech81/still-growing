@@ -11,36 +11,11 @@ import AppShell, { fetchAppShellData } from "@/components/AppShell";
 import GroveMedia from "@/components/GroveMedia";
 import YouTubeEmbed from "@/components/YouTubeEmbed";
 import GrovePostActions from "@/components/GrovePostActions";
+import { excerptFromMarkdown } from "@/lib/grove";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stillgrowing.co";
 const DEFAULT_TITLE = "The Grove";
 const DEFAULT_DESCRIPTION = "Videos, quotes, updates and a simple hello from the Still Growing team";
-
-function truncate(text: string, max: number): string {
-  if (text.length <= max) return text;
-  return text.slice(0, max - 1).trimEnd() + "…";
-}
-
-// Body is markdown now (components/admin/grove-editor), not plain text
-// like a reflection (app/r/[shareId]/page.tsx's getReflectionCaption,
-// which just truncates as-is) -- a raw truncation could land mid-```mux-
-// video block, spitting out a playback id as the description, or leave
-// stray #/**/![]() syntax visible in a chat preview. Strips fenced code
-// blocks (the mux-video case, and any genuine code block) and image
-// syntax entirely rather than trying to preserve alt text -- neither
-// reads as a sentence in a one-line excerpt -- and unwraps every other
-// inline marker down to plain words before truncating.
-function excerptFromMarkdown(markdown: string, max: number): string {
-  const plain = markdown
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/[*_`>#]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return truncate(plain, max);
-}
 
 // Public route, same reasoning as app/r/[shareId]/page.tsx's own
 // generateMetadata: looked up with the service-role client, since a

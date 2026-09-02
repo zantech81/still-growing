@@ -85,6 +85,27 @@ export default function GrovePostForm({ post }: { post?: Post }) {
           updated_by: user?.id ?? null,
         })
         .eq("id", 1);
+
+      // Not awaited, with keepalive: same reliability reasoning as
+      // app/auth/welcome/page.tsx's sync-contact call -- waitUntil
+      // doesn't reliably survive in this project's Vercel deployment
+      // (see commits f9ab3e9->d5dadbe), so a batched send to every
+      // reader can't rely on continuing after this response returns.
+      // keepalive lets the request survive the router.push below rather
+      // than being cancelled when this component unmounts. Deliberately
+      // not blocking the redirect either (unlike BookForm.tsx's awaited
+      // notify-book-launch call): the post is already published and the
+      // announcement already live by this point regardless of how long
+      // the email send takes, and Grove is expected to be published far
+      // more often than a book ever launches -- waiting on a bulk send
+      // every time would make an increasingly routine action feel slow
+      // for no benefit to the admin.
+      fetch("/api/admin/notify-grove-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId: savedPost.id }),
+        keepalive: true,
+      }).catch(console.error);
     }
 
     setSaving(null);
