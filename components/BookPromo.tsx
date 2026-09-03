@@ -19,9 +19,11 @@ import Link from "next/link";
 export default function BookPromo({
   coverImageUrl,
   salesUrl,
+  hideSignInLink = false,
 }: {
   coverImageUrl: string | null;
   salesUrl: string | null;
+  hideSignInLink?: boolean;
 }) {
   return (
     <div className="max-w-sm mx-auto text-center border-t border-pink-pale pt-10">
@@ -63,12 +65,14 @@ export default function BookPromo({
         </>
       )}
 
-      <p className="text-xs text-gray-400 mt-4">
-        Already have your copy?{" "}
-        <Link href="/login" className="text-pink-deep hover:underline">
-          Sign in
-        </Link>
-      </p>
+      {!hideSignInLink && (
+        <p className="text-xs text-gray-400 mt-4">
+          Already have your copy?{" "}
+          <Link href="/login" className="text-pink-deep hover:underline">
+            Sign in
+          </Link>
+        </p>
+      )}
     </div>
   );
 }
