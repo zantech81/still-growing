@@ -74,34 +74,11 @@ export default async function AdminDashboard() {
         ))}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <QuickLink href="/admin/books" title="Books" description="Create and publish books, manage chapters and badges." />
-        <QuickLink href="/admin/members" title="Members" description="See who has joined and their progress." />
-        <QuickLink href="/admin/circle" title="Circle" description="Moderate reader reflections." />
-        <QuickLink href="/admin/self-harm" title="Wellbeing" description="Review flagged self-harm language and follow up." />
-        <QuickLink href="/admin/reviews" title="Reviews" description="Approve, reject, and feature reader reviews." />
-        <QuickLink href="/admin/grove" title="The Grove" description="Post videos, quotes, and updates for your readers." />
-        <QuickLink
-          href="/admin/email-templates"
-          title="Email Templates"
-          description="Customize the copy for reaction, book launch, birthday, and other emails."
-        />
-      </div>
-
       {(booksByStatus.draft ?? 0) > 0 && (
         <p className="mt-8 text-sm text-gray-400">
           {booksByStatus.draft} draft book{booksByStatus.draft === 1 ? "" : "s"}, <Link href="/admin/books" className="text-pink-deep hover:underline">publish when ready</Link>
         </p>
       )}
     </div>
-  );
-}
-
-function QuickLink({ href, title, description }: { href: string; title: string; description: string }) {
-  return (
-    <Link href={href} className="block bg-white border border-pink-pale hover:border-pink-dusty rounded-xl2 p-5 transition-colors">
-      <p className="font-medium text-plum mb-1">{title}</p>
-      <p className="text-sm text-gray-400">{description}</p>
-    </Link>
   );
 }

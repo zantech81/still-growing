@@ -21,9 +21,14 @@ export default async function AdminLayout({
 
   if (!profile?.is_admin) redirect("/library");
 
+  const [{ count: unacknowledgedCount }, { count: pendingCount }] = await Promise.all([
+    supabase.from("self_harm_flags").select("*", { count: "exact", head: true }).eq("acknowledged", false),
+    supabase.from("reviews").select("*", { count: "exact", head: true }).eq("status", "pending"),
+  ]);
+
   return (
     <div className="flex min-h-screen bg-cream">
-      <AdminNav />
+      <AdminNav unacknowledgedCount={unacknowledgedCount ?? 0} pendingCount={pendingCount ?? 0} />
       <div className="flex-1 min-w-0 p-8 max-w-5xl">{children}</div>
     </div>
   );

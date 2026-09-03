@@ -4,8 +4,8 @@ import SelfHarmFlagsList from "@/components/admin/SelfHarmFlagsList";
 // No auth check here: app/admin/layout.tsx already gates every route under
 // /admin to a signed-in admin, same as app/admin/circle/page.tsx. Also
 // never linked from anywhere a reader could reach -- the only way in is
-// typing this URL directly as an admin, or the QuickLink card on
-// app/admin/page.tsx's dashboard.
+// typing this URL directly as an admin, or the Wellbeing link in AdminNav's
+// sidebar.
 export default async function AdminSelfHarmPage() {
   const supabase = createClient();
 
