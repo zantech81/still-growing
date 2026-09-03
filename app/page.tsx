@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stillgrowing.co";
 
@@ -21,6 +22,24 @@ async function getFeaturedReviews(): Promise<Review[]> {
   } catch {
     return [];
   }
+}
+
+// Cold-customer CTA: this page is the one a stranger who's never bought
+// the book actually lands on (see the header comment below), so this is
+// where a "don't have it yet?" link belongs -- not /login, which is
+// reached only after already clicking Begin. Same shape as
+// app/library/page.tsx's promo fetch, scoped to "published" so a
+// coming_soon book (no real sales page yet) is never linked here.
+async function getSalesUrl(): Promise<string | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("books")
+    .select("sales_page_url")
+    .eq("status", "published")
+    .order("sort_order")
+    .limit(1)
+    .maybeSingle();
+  return data?.sales_page_url ?? null;
 }
 
 function Stars({ rating }: { rating: number }) {
@@ -48,7 +67,7 @@ function Stars({ rating }: { rating: number }) {
 // same "Begin" language. Anyone landing here typed in the plain
 // stillgrowing.co URL from the book (not a /baby/chN deep link).
 export default async function HomePage() {
-  const featuredReviews = await getFeaturedReviews();
+  const [featuredReviews, salesUrl] = await Promise.all([getFeaturedReviews(), getSalesUrl()]);
 
   return (
     <main className="max-w-xl mx-auto px-6 py-20 text-center">
@@ -92,6 +111,15 @@ export default async function HomePage() {
           Read what other readers are saying →
         </Link>
       </p>
+
+      {salesUrl && (
+        <p className="text-xs text-gray-400 mt-6">
+          Don&apos;t have the book yet?{" "}
+          <a href={`${salesUrl}?ref=begin-cold`} className="underline hover:text-pink-deep transition-colors">
+            Get it here →
+          </a>
+        </p>
+      )}
 
       {featuredReviews.length > 0 && (
         <div className="mt-16 pt-12 border-t border-pink-pale text-left">
