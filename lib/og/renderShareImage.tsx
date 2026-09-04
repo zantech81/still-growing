@@ -565,16 +565,15 @@ export function growingTreeCardTree({
   );
 }
 
-// The Grove's share card (app/api/og/grove/route.ts) -- one generic image
-// reused for every Grove share (the whole page and every individual post
-// alike), not a unique card per post. Grove posts share via direct-URL
-// mode (components/GrovePostActions.tsx), which deliberately bypasses the
-// shares table entirely (see that component's own comment), so unlike
-// every *CardTree above there's no shares-row snapshot to render from --
-// this takes no post-specific data at all. Per-post differentiation in a
-// chat preview comes from app/grove/page.tsx's generateMetadata setting a
-// per-post openGraph title/description instead; this image's job is just
-// "a real branded card," not a bespoke one per post.
+// The Grove's whole-page share card (app/api/og/grove/route.ts's no-param
+// case) -- the generic image used when there's no specific post to render
+// (the /grove index itself, or a post id that's missing/unpublished). A
+// specific post instead gets grovePostCardTree above, generated fresh from
+// a live DB lookup rather than a shares-row snapshot -- Grove posts share
+// via direct-URL mode (components/GrovePostActions.tsx), which deliberately
+// bypasses the shares table entirely (see that component's own comment), so
+// unlike every *CardTree above (other than profileCardTree) there's no
+// shares-row snapshot to render from.
 export function groveCardTree({ shareUrl, badgeSrc }: { shareUrl: string; badgeSrc: string }) {
   return (
     <div
@@ -618,6 +617,96 @@ export function groveCardTree({ shareUrl, badgeSrc }: { shareUrl: string; badgeS
           }}
         >
           Videos, quotes, updates and a simple hello from the Still Growing team
+        </div>
+      </div>
+
+      <Branding shareUrl={shareUrl} badgeSrc={badgeSrc} />
+    </div>
+  );
+}
+
+// A single Grove post's own share card (app/api/og/grove/route.ts's
+// ?post= case). Styled like reflectionCardTree (title/text on a bordered
+// white card) but on groveCardTree's own greenSoft background and "The
+// Grove" label, so it reads as a sibling of that generic card rather than
+// a different family. Deliberately text-only, same as every other card in
+// this file -- no attempt to pull a post's hero image or video thumbnail
+// into the card; that's a meaningfully bigger, separate problem (arbitrary
+// media into a Satori render) than this scope covers.
+export function grovePostCardTree({
+  title,
+  excerpt,
+  shareUrl,
+  badgeSrc,
+}: {
+  title: string;
+  excerpt: string;
+  shareUrl: string;
+  badgeSrc: string;
+}) {
+  return (
+    <div
+      style={{
+        width: WIDTH,
+        height: HEIGHT,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "space-between",
+        backgroundColor: COLORS.greenSoft,
+        padding: "56px 80px",
+      }}
+    >
+      <div
+        style={{
+          fontFamily: "Nunito",
+          fontWeight: 700,
+          fontSize: 20,
+          color: COLORS.pinkDeep,
+          letterSpacing: 3,
+          textTransform: "uppercase",
+        }}
+      >
+        The Grove
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#ffffff",
+          border: `2px solid ${COLORS.pinkPale}`,
+          borderRadius: 32,
+          padding: "48px 56px",
+          maxWidth: 920,
+          gap: 24,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "Playfair Display",
+            fontWeight: 700,
+            fontSize: 44,
+            color: COLORS.plum,
+            textAlign: "center",
+          }}
+        >
+          {truncate(title, 80)}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "Nunito",
+            fontSize: 26,
+            lineHeight: 1.5,
+            color: COLORS.ink,
+            textAlign: "center",
+          }}
+        >
+          {truncate(excerpt, 200)}
         </div>
       </div>
 

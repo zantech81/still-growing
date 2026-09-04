@@ -32,7 +32,9 @@ export async function generateMetadata({
 }: {
   searchParams: { post?: string };
 }): Promise<Metadata> {
-  const imageUrl = `${siteUrl}/api/og/grove`;
+  const imageUrl = searchParams.post
+    ? `${siteUrl}/api/og/grove?post=${searchParams.post}`
+    : `${siteUrl}/api/og/grove`;
   const pageUrl = searchParams.post ? `${siteUrl}/grove?post=${searchParams.post}` : `${siteUrl}/grove`;
 
   let title = DEFAULT_TITLE;

@@ -64,14 +64,14 @@ export default function GrovePostActions({ postId, title, initialHeartsCount, in
           it to show this specific post's title/excerpt in a shared link's
           preview. The hash is kept too so the existing plain-HTML
           scroll-to-post behavior (no JS) keeps working exactly as before.
-          Image is the generic /api/og/grove card (lib/og/renderShareImage.tsx's
-          groveCardTree) -- one image for every Grove share, not unique per
-          post; the title/excerpt above is what actually differentiates
-          posts in a chat preview. */}
+          Image is /api/og/grove?post=<id> -- that post's own card
+          (lib/og/renderShareImage.tsx's grovePostCardTree), not the
+          generic one, so the in-app preview matches what an external
+          platform actually unfurls. */}
       <ShareButton
         type="grove"
         directUrl={`/grove?post=${postId}#${postId}`}
-        directImageUrl="/api/og/grove"
+        directImageUrl={`/api/og/grove?post=${postId}`}
         iconOnly
         className="ml-auto"
         label="Share this post"
