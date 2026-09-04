@@ -39,43 +39,66 @@ export default async function GrowingPage() {
   // existing leaves never move as connections are added or removed --
   // there's no need to separately track *which* tip belongs to *which*
   // person or when they connected.
-  const [{ personIds, earliestConnectedAt, bookCounts }, sharedReflectionCount] = await Promise.all([
-    getConnectionsSummary(supabase, user.id),
-    getSharedReflectionCount(supabase, user.id),
-  ]);
+  // recentBook only needs user.id, same as the two connection queries
+  // above it -- widened into this Promise.all so it overlaps with them
+  // instead of waiting behind the country/book breakdowns below, which is
+  // where it happened to read cleanly but not what it actually depends on.
+  const [{ personIds, earliestConnectedAt, bookCounts }, sharedReflectionCount, { data: recentBook }] =
+    await Promise.all([
+      getConnectionsSummary(supabase, user.id),
+      getSharedReflectionCount(supabase, user.id),
+      // "Root for" connections aren't scoped to a book (see
+      // supabase/migrations/0029_connections.sql), but shares.book_id is
+      // NOT NULL (0023_shares.sql), so a growing_tree share still needs some
+      // book to attach to. Mirrors AppShell.tsx's own "most recently started
+      // book" pick for journeyHref, for the same reason: there's no more
+      // meaningful choice when the content itself isn't book-specific.
+      supabase
+        .from("user_books")
+        .select("book_id")
+        .eq("user_id", user.id)
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
   const connectionCount = personIds.length;
 
-  // Only ever queried/shown once connections actually span more than one
-  // book_id (see supabase/migrations/0031_connections_book_id.sql). With
-  // one published book, every connection gets the same book_id, so
-  // bookCounts.size is always <= 1 today and this whole block is a no-op:
-  // no query, no UI. The tree itself never reads this -- it stays fully
-  // unified regardless of how many books are represented.
+  // Country and book breakdowns both depend on the connections summary
+  // above (personIds, bookCounts) but not on each other, so they run
+  // together rather than one after the other.
+  const [{ data: connectedUsers }, { data: booksData }] = await Promise.all([
+    // Country breakdown: people without a country set simply don't
+    // contribute, same graceful-absence pattern as FlagImg's other call
+    // sites (CircleFeed.tsx only renders a flag when country_code is set).
+    personIds.length > 0
+      ? // public_profiles, not users directly: these are OTHER people's
+        // rows, and public.users' own RLS is now scoped to "own row or
+        // admin" (see 0033_users_rls_column_scoping.sql). public_profiles
+        // has no row restriction of its own, only a safe column subset.
+        supabase.from("public_profiles").select("country_code").in("id", personIds)
+      : Promise.resolve({ data: null }),
+    // Only ever queried/shown once connections actually span more than one
+    // book_id (see supabase/migrations/0031_connections_book_id.sql). With
+    // one published book, every connection gets the same book_id, so
+    // bookCounts.size is always <= 1 today and this whole block is a no-op:
+    // no query, no UI. The tree itself never reads this -- it stays fully
+    // unified regardless of how many books are represented.
+    bookCounts.size > 1
+      ? supabase.from("books").select("id, title").in("id", [...bookCounts.keys()])
+      : Promise.resolve({ data: null }),
+  ]);
+
   let bookBreakdown: { title: string; count: number }[] = [];
   if (bookCounts.size > 1) {
-    const { data: booksData } = await supabase.from("books").select("id, title").in("id", [...bookCounts.keys()]);
     bookBreakdown = (booksData ?? [])
       .map((b) => ({ title: b.title as string, count: bookCounts.get(b.id as string) ?? 0 }))
       .sort((a, b) => b.count - a.count);
   }
 
-  // Country breakdown: people without a country set simply don't
-  // contribute, same graceful-absence pattern as FlagImg's other call
-  // sites (CircleFeed.tsx only renders a flag when country_code is set).
   const countryCounts = new Map<string, number>();
-  if (personIds.length > 0) {
-    // public_profiles, not users directly: these are OTHER people's rows,
-    // and public.users' own RLS is now scoped to "own row or admin" (see
-    // 0033_users_rls_column_scoping.sql). public_profiles has no row
-    // restriction of its own, only a safe column subset.
-    const { data: connectedUsers } = await supabase
-      .from("public_profiles")
-      .select("country_code")
-      .in("id", personIds);
-    for (const row of connectedUsers ?? []) {
-      if (!row.country_code) continue;
-      countryCounts.set(row.country_code, (countryCounts.get(row.country_code) ?? 0) + 1);
-    }
+  for (const row of connectedUsers ?? []) {
+    if (!row.country_code) continue;
+    countryCounts.set(row.country_code, (countryCounts.get(row.country_code) ?? 0) + 1);
   }
   const countryBreakdown = [...countryCounts.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -87,24 +110,12 @@ export default async function GrowingPage() {
 
   const quote = pickGrowthQuote(user.id);
 
-  // "Root for" connections aren't scoped to a book (see
-  // supabase/migrations/0029_connections.sql), but shares.book_id is
-  // NOT NULL (0023_shares.sql), so a growing_tree share still needs some
-  // book to attach to. Mirrors AppShell.tsx's own "most recently started
-  // book" pick for journeyHref, for the same reason: there's no more
-  // meaningful choice when the content itself isn't book-specific.
-  const { data: recentBook } = await supabase
-    .from("user_books")
-    .select("book_id")
-    .eq("user_id", user.id)
-    .order("started_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const displayName = (
-    await supabase.from("users").select("nickname, display_name").eq("id", user.id).single()
-  ).data;
-  const ownName = displayName?.nickname ?? displayName?.display_name ?? "my";
+  // Already in flight since the top of this function (see the comment
+  // there) -- awaiting it again here just reads the same settled/pending
+  // promise, not a second request. Replaces a standalone `users` query
+  // that duplicated exactly the columns fetchAppShellData already fetches.
+  const { profile } = await appShellDataPromise;
+  const ownName = profile?.nickname ?? profile?.display_name ?? "my";
 
   return (
     <AppShell user={user} dataPromise={appShellDataPromise}>
