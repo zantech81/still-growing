@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/unlock-alert",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/scheduled-content",
+      "schedule": "0 7 * * *"
     }
   ]
 }

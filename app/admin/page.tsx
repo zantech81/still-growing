@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import MaintenanceToggle from "@/components/admin/MaintenanceToggle";
-import AnnouncementToggle from "@/components/admin/AnnouncementToggle";
+import AnnouncementQueue from "@/components/admin/AnnouncementQueue";
 import UnlockAlertThresholdSetting from "@/components/admin/UnlockAlertThresholdSetting";
 import UnlockClusterAlertBanner from "@/components/admin/UnlockClusterAlertBanner";
 import { getUnverifiedUnlockClusters } from "@/lib/unlockAlerts";
@@ -15,6 +15,7 @@ export default async function AdminDashboard() {
     { count: reflectionCount },
     { count: reactionCount },
     { data: siteSettings },
+    { data: announcements },
     unlockClusters,
   ] = await Promise.all([
     supabase.from("users").select("*", { count: "exact", head: true }).eq("is_demo", false),
@@ -23,11 +24,13 @@ export default async function AdminDashboard() {
     supabase.from("reactions").select("*", { count: "exact", head: true }),
     supabase
       .from("site_settings")
-      .select(
-        "maintenance_mode, maintenance_message, announcement_active, announcement_message, announcement_link, unlock_alert_threshold"
-      )
+      .select("maintenance_mode, maintenance_message, unlock_alert_threshold")
       .eq("id", 1)
       .maybeSingle(),
+    supabase
+      .from("scheduled_announcements")
+      .select("id, message, link, country_codes, starts_at, ends_at, status, created_at")
+      .order("created_at", { ascending: false }),
     getUnverifiedUnlockClusters(),
   ]);
 
@@ -57,11 +60,7 @@ export default async function AdminDashboard() {
         initialMessage={siteSettings?.maintenance_message ?? ""}
       />
 
-      <AnnouncementToggle
-        initialActive={siteSettings?.announcement_active ?? false}
-        initialMessage={siteSettings?.announcement_message ?? ""}
-        initialLink={siteSettings?.announcement_link ?? ""}
-      />
+      <AnnouncementQueue initialAnnouncements={announcements ?? []} />
 
       <UnlockAlertThresholdSetting initialThreshold={unlockAlertThreshold} />
 

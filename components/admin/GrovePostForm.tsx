@@ -12,7 +12,24 @@ type Post = {
   body: string;
   media_url: string | null;
   status: "draft" | "published";
+  scheduled_for: string | null;
 };
+
+function todayDateString() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatDateForDisplay(isoDate: string) {
+  // Parsed as UTC noon, not midnight -- a plain "YYYY-MM-DD" parses as UTC
+  // midnight, which toLocaleDateString in a negative-UTC-offset timezone
+  // would then roll back to the previous calendar day. Noon has enough
+  // margin either direction to always land on the intended date.
+  return new Date(`${isoDate}T12:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 export default function GrovePostForm({ post }: { post?: Post }) {
   const router = useRouter();
@@ -20,13 +37,16 @@ export default function GrovePostForm({ post }: { post?: Post }) {
 
   const [title, setTitle] = useState(post?.title ?? "");
   const [body, setBody] = useState(post?.body ?? "");
-  const [saving, setSaving] = useState<"draft" | "publish" | null>(null);
+  const [scheduledFor, setScheduledFor] = useState(post?.scheduled_for ?? "");
+  const [saving, setSaving] = useState<"draft" | "publish" | "schedule" | null>(null);
   const [error, setError] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
-  async function save(publish: boolean) {
+  const alreadyPublished = post?.status === "published";
+
+  async function save(mode: "draft" | "publish" | "schedule") {
     if (!title.trim()) {
       setError("Title is required.");
       return;
@@ -35,8 +55,12 @@ export default function GrovePostForm({ post }: { post?: Post }) {
       setError("Write something for the body.");
       return;
     }
+    if (mode === "schedule" && !scheduledFor) {
+      setError("Pick a date to schedule for.");
+      return;
+    }
     setError("");
-    setSaving(publish ? "publish" : "draft");
+    setSaving(mode);
 
     const supabase = createClient();
     const {
@@ -44,13 +68,24 @@ export default function GrovePostForm({ post }: { post?: Post }) {
     } = await supabase.auth.getUser();
 
     const wasPublished = post?.status === "published";
-    const nowPublishing = publish && !wasPublished;
+    const nowPublishing = mode === "publish" && !wasPublished;
 
-    const payload = {
+    const payload: {
+      title: string;
+      body: string;
+      status: "draft" | "published";
+      published_at?: string;
+      scheduled_for?: string | null;
+    } = {
       title: title.trim(),
       body: body.trim(),
-      status: publish ? "published" : "draft",
-      ...(nowPublishing ? { published_at: new Date().toISOString() } : {}),
+      status: mode === "publish" ? "published" : "draft",
+      // "Save draft" leaves scheduled_for untouched entirely (a content
+      // tweak to an already-scheduled post shouldn't silently cancel the
+      // schedule) -- only "Schedule" sets it, and publishing clears it
+      // (no longer pending once it's actually live).
+      ...(mode === "schedule" ? { scheduled_for: scheduledFor } : {}),
+      ...(nowPublishing ? { published_at: new Date().toISOString(), scheduled_for: null } : {}),
     };
 
     const { data: savedPost, error: saveError } = isEdit
@@ -68,23 +103,24 @@ export default function GrovePostForm({ post }: { post?: Post }) {
     }
 
     // Newly publishing (not just editing an already-published post) --
-    // auto-activate the sitewide announcement to point at it. A manually
-    // set announcement is deliberately overwritten here: the punch-list
-    // item asks for exactly this ("references that post ... so readers
-    // see 'new post in the Grove' without the admin separately going to
-    // set an announcement"), and the admin can always re-edit or clear it
-    // afterward from the dashboard's Announcement control.
+    // create a sitewide announcement row pointing at it. A manually set
+    // announcement is deliberately not touched here: unlike the old
+    // site_settings singleton this used to overwrite, the queue can hold
+    // more than one row, so this just adds a new active one alongside
+    // whatever else is running rather than clobbering it. The admin can
+    // still cancel/end this one from the dashboard's queue manager.
+    // Mirrors exactly what the scheduled-publish cron does for a
+    // scheduled post reaching its date (lib/notifications.ts's
+    // publishScheduledGrovePosts).
     if (nowPublishing) {
-      await supabase
-        .from("site_settings")
-        .update({
-          announcement_active: true,
-          announcement_message: `New in the Grove: "${savedPost.title}"`,
-          announcement_link: `/grove#${savedPost.id}`,
-          updated_at: new Date().toISOString(),
-          updated_by: user?.id ?? null,
-        })
-        .eq("id", 1);
+      await supabase.from("scheduled_announcements").insert({
+        message: `New in the Grove: "${savedPost.title}"`,
+        link: `/grove#${savedPost.id}`,
+        country_codes: null,
+        starts_at: todayDateString(),
+        status: "active",
+        created_by: user?.id ?? null,
+      });
 
       // Not awaited, with keepalive: same reliability reasoning as
       // app/auth/welcome/page.tsx's sync-contact call -- waitUntil
@@ -146,22 +182,51 @@ export default function GrovePostForm({ post }: { post?: Post }) {
         <GroveEditor initialValue={body} onChange={setBody} />
       </Field>
 
+      {/* Scheduling only makes sense pre-publish -- an already-published
+          post has no "not yet public" state left to schedule into. */}
+      {!alreadyPublished && (
+        <Field label="Schedule for later" hint="Leave blank to save as a plain draft or publish right away.">
+          <div className="flex items-center gap-3">
+            <input
+              type="date"
+              value={scheduledFor}
+              min={todayDateString()}
+              onChange={(e) => setScheduledFor(e.target.value)}
+              className={input() + " w-auto"}
+            />
+            <button
+              onClick={() => save("schedule")}
+              disabled={saving !== null}
+              className="px-5 py-2 rounded-xl2 text-sm border border-pink-dusty text-pink-deep hover:bg-pink-pale transition-colors disabled:opacity-50 whitespace-nowrap"
+            >
+              {saving === "schedule" ? "Scheduling…" : post?.scheduled_for ? "Update schedule" : "Schedule"}
+            </button>
+          </div>
+          {post?.scheduled_for && (
+            <p className="text-xs text-gray-400 mt-1.5">
+              Currently scheduled to publish on {formatDateForDisplay(post.scheduled_for)}. The daily cron picks
+              this up once the date arrives.
+            </p>
+          )}
+        </Field>
+      )}
+
       {error && <p className="text-sm text-pink-deep">{error}</p>}
 
       <div className="flex gap-3 pt-2">
         <button
-          onClick={() => save(false)}
+          onClick={() => save("draft")}
           disabled={saving !== null}
           className="px-6 py-2.5 rounded-xl2 text-sm border border-gray-200 text-gray-500 hover:text-ink transition-colors disabled:opacity-50"
         >
           {saving === "draft" ? "Saving…" : "Save draft"}
         </button>
         <button
-          onClick={() => save(true)}
+          onClick={() => save("publish")}
           disabled={saving !== null}
           className="bg-plum text-white px-6 py-2.5 rounded-xl2 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
         >
-          {saving === "publish" ? "Publishing…" : post?.status === "published" ? "Save changes" : "Publish"}
+          {saving === "publish" ? "Publishing…" : post?.status === "published" ? "Save changes" : "Publish now"}
         </button>
         <button
           type="button"

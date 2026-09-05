@@ -6,7 +6,7 @@ export default async function AdminGrovePage() {
   const supabase = createClient();
   const { data: posts } = await supabase
     .from("grove_posts")
-    .select("id, title, status, created_at, published_at")
+    .select("id, title, status, created_at, published_at, scheduled_for")
     .order("created_at", { ascending: false });
 
   return (

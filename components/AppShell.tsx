@@ -20,11 +20,7 @@ export type AppShellData = {
   unreadCount: number | null;
   firstBook: { books: { slug: string } | { slug: string }[] | null } | null;
   unlockedBookCount: number | null;
-  announcement: {
-    announcement_active: boolean;
-    announcement_message: string | null;
-    announcement_link: string | null;
-  } | null;
+  announcement: { message: string; link: string | null } | null;
   latestGrovePostAt: string | null;
 };
 
@@ -45,7 +41,7 @@ export async function fetchAppShellData(supabase: SupabaseClient, userId: string
     { count: unreadCount },
     { data: firstBook },
     { count: unlockedBookCount },
-    { data: announcement },
+    { data: activeAnnouncements },
     { data: latestGrovePost },
   ] = await Promise.all([
     supabase
@@ -71,11 +67,16 @@ export async function fetchAppShellData(supabase: SupabaseClient, userId: string
       .from("book_unlocks")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId),
-    supabase
-      .from("site_settings")
-      .select("announcement_active, announcement_message, announcement_link")
-      .eq("id", 1)
-      .maybeSingle(),
+    // scheduled_announcements (0062_scheduled_announcements.sql), not the
+    // old site_settings singleton -- there can be more than one active row
+    // at once now (sitewide + one or more country-scoped), so which one
+    // this particular viewer should see is picked in JS below, once the
+    // viewer's own country_code (from the `profile` query above) is
+    // available too. Deliberately not a second sequential round trip that
+    // waits on `profile` first -- the "active" set is small regardless of
+    // viewer, so both queries fire in the same Promise.all and the
+    // filtering happens after both resolve.
+    supabase.from("scheduled_announcements").select("message, link, country_codes, created_at").eq("status", "active"),
     // Grove nav icon's unseen-post signal (components/AppNav.tsx) --
     // just the latest published post's timestamp, compared against the
     // viewer's own last_seen_grove_at below. Grove posts don't generate
@@ -91,6 +92,8 @@ export async function fetchAppShellData(supabase: SupabaseClient, userId: string
       .maybeSingle(),
   ]);
 
+  const announcement = pickAnnouncement(activeAnnouncements ?? [], profile?.country_code ?? null);
+
   return {
     profile,
     unreadCount,
@@ -99,6 +102,32 @@ export async function fetchAppShellData(supabase: SupabaseClient, userId: string
     announcement,
     latestGrovePostAt: latestGrovePost?.published_at ?? null,
   };
+}
+
+// Among every currently-active announcement, keeps the ones this viewer
+// should actually see (sitewide, or country-scoped to their own
+// country_code) and picks one to show. A country-specific match wins over
+// a sitewide one when both apply -- a targeted message is more likely to
+// be the one worth surfacing -- and the most recently created wins any
+// remaining tie (two country-specific rows both matching, or two sitewide
+// rows), rather than an arbitrary DB-order pick.
+function pickAnnouncement(
+  rows: { message: string; link: string | null; country_codes: string[] | null; created_at: string }[],
+  viewerCountryCode: string | null
+): { message: string; link: string | null } | null {
+  const eligible = rows.filter(
+    (r) => !r.country_codes?.length || (!!viewerCountryCode && r.country_codes.includes(viewerCountryCode))
+  );
+  if (eligible.length === 0) return null;
+
+  eligible.sort((a, b) => {
+    const aScoped = !!a.country_codes?.length;
+    const bScoped = !!b.country_codes?.length;
+    if (aScoped !== bScoped) return aScoped ? -1 : 1;
+    return b.created_at.localeCompare(a.created_at);
+  });
+
+  return { message: eligible[0].message, link: eligible[0].link };
 }
 
 type Props = {
@@ -178,12 +207,7 @@ export default async function AppShell({ children, requireNickname = true, user:
       />
       {/* pt-14 clears the fixed 56px header; pb-20 clears the 64px mobile bottom nav */}
       <div className="min-h-screen pt-14 pb-20 md:pb-4">
-        {announcement?.announcement_active && announcement.announcement_message && (
-          <AnnouncementBanner
-            message={announcement.announcement_message}
-            link={announcement.announcement_link}
-          />
-        )}
+        {announcement?.message && <AnnouncementBanner message={announcement.message} link={announcement.link} />}
         {showBirthday && <BirthdayBanner name={birthdayName} />}
         {children}
       </div>

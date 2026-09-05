@@ -6,7 +6,7 @@ export default async function EditGrovePostPage({ params }: { params: { id: stri
   const supabase = createClient();
   const { data: post } = await supabase
     .from("grove_posts")
-    .select("id, title, body, media_url, status")
+    .select("id, title, body, media_url, status, scheduled_for")
     .eq("id", params.id)
     .single();
 

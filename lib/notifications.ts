@@ -312,3 +312,136 @@ export async function notifyGrovePost(postId: string): Promise<void> {
     console.error("[notifications] notifyGrovePost error:", err);
   }
 }
+
+// ── Scheduled content (daily cron) ───────────────────────────────────────────
+
+// Both called by app/api/cron/scheduled-content/route.ts, once daily, same
+// CRON_SECRET-gated pattern as /api/cron/birthdays and /api/cron/unlock-alert.
+// Day-precision only throughout (date columns, not timestamptz) -- this
+// project's cron cadence is once daily, so time-of-day precision was
+// deliberately scoped out rather than half-built.
+
+function todayDateString(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// Publishes any Grove post whose scheduled_for date has arrived. A
+// scheduled post is a draft with scheduled_for set (see
+// 0061_grove_posts_scheduled_for.sql's own comment for why this didn't
+// need a third status value) -- publishing one here does exactly what
+// GrovePostForm.tsx's save(true) nowPublishing branch does for an
+// immediate publish: flip status/published_at, create the sitewide
+// "New in the Grove" announcement (as a scheduled_announcements row now,
+// not the old site_settings singleton), and send the batched email via
+// notifyGrovePost -- called directly rather than round-tripping through
+// app/api/admin/notify-grove-post's HTTP route, since this already runs
+// server-side with no client to keep the request open for. Each post is
+// wrapped in its own try/catch so one failure doesn't block the rest of
+// the batch. Never throws overall. All errors are logged.
+export async function publishScheduledGrovePosts(): Promise<{ published: number; failed: number }> {
+  try {
+    const supabase = createAdminClient();
+    const today = todayDateString();
+
+    const { data: duePosts, error } = await supabase
+      .from("grove_posts")
+      .select("id, title")
+      .eq("status", "draft")
+      .not("scheduled_for", "is", null)
+      .lte("scheduled_for", today);
+
+    if (error) {
+      console.error("[notifications] publishScheduledGrovePosts query error:", error);
+      return { published: 0, failed: 0 };
+    }
+    if (!duePosts?.length) return { published: 0, failed: 0 };
+
+    let published = 0;
+    let failed = 0;
+
+    for (const post of duePosts) {
+      try {
+        const { error: updateError } = await supabase
+          .from("grove_posts")
+          .update({ status: "published", published_at: new Date().toISOString(), scheduled_for: null })
+          .eq("id", post.id);
+        if (updateError) throw updateError;
+
+        const { error: announceError } = await supabase.from("scheduled_announcements").insert({
+          message: `New in the Grove: "${post.title}"`,
+          link: `/grove#${post.id}`,
+          country_codes: null,
+          starts_at: today,
+          status: "active",
+        });
+        if (announceError) throw announceError;
+
+        await notifyGrovePost(post.id);
+        published++;
+      } catch (err) {
+        failed++;
+        console.error(`[notifications] publishScheduledGrovePosts: failed for post ${post.id}:`, err);
+      }
+    }
+
+    return { published, failed };
+  } catch (err) {
+    console.error("[notifications] publishScheduledGrovePosts error:", err);
+    return { published: 0, failed: 0 };
+  }
+}
+
+// Flips scheduled_announcements rows across the two day-boundary
+// transitions the admin queue manager doesn't otherwise handle:
+// scheduled -> active once starts_at arrives, and active -> ended once
+// ends_at passes (a null ends_at means "runs until manually ended," same
+// as today's manual-clear behavior on the old singleton, so it's simply
+// never selected by the ends_at branch below). Both transitions are bulk
+// updates (one request per transition, not one per row), same "don't
+// move the fan-out problem to the database" standard as every other bulk
+// write this session. Never throws. All errors are logged.
+export async function updateScheduledAnnouncementStatuses(): Promise<{ started: number; ended: number }> {
+  try {
+    const supabase = createAdminClient();
+    const today = todayDateString();
+
+    const [{ data: starting, error: startingError }, { data: ending, error: endingError }] = await Promise.all([
+      supabase.from("scheduled_announcements").select("id").eq("status", "scheduled").lte("starts_at", today),
+      supabase
+        .from("scheduled_announcements")
+        .select("id")
+        .eq("status", "active")
+        .not("ends_at", "is", null)
+        .lt("ends_at", today),
+    ]);
+
+    if (startingError) console.error("[notifications] updateScheduledAnnouncementStatuses starting query error:", startingError);
+    if (endingError) console.error("[notifications] updateScheduledAnnouncementStatuses ending query error:", endingError);
+
+    let started = 0;
+    let ended = 0;
+
+    if (starting?.length) {
+      const { error } = await supabase
+        .from("scheduled_announcements")
+        .update({ status: "active" })
+        .in("id", starting.map((r) => r.id));
+      if (error) console.error("[notifications] updateScheduledAnnouncementStatuses activate error:", error);
+      else started = starting.length;
+    }
+
+    if (ending?.length) {
+      const { error } = await supabase
+        .from("scheduled_announcements")
+        .update({ status: "ended" })
+        .in("id", ending.map((r) => r.id));
+      if (error) console.error("[notifications] updateScheduledAnnouncementStatuses end error:", error);
+      else ended = ending.length;
+    }
+
+    return { started, ended };
+  } catch (err) {
+    console.error("[notifications] updateScheduledAnnouncementStatuses error:", err);
+    return { started: 0, ended: 0 };
+  }
+}

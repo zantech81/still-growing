@@ -28,28 +28,34 @@ export function excerptFromMarkdown(markdown: string, max: number): string {
   return truncate(plain, max);
 }
 
-// Publishing a Grove post (GrovePostForm.tsx's save()) auto-points
-// site_settings.announcement_link at that post (`/grove#<id>`). Deleting
-// a post that's still the announcement's target would otherwise leave
-// the live banner pointing at a page that no longer exists. Checked
-// before the delete goes through, not after: if the post delete then
-// fails, the worst case is the banner turned off early for a post that's
-// still live (obvious and easy to reactivate) rather than the dangling
-// reference this exists to prevent.
+// Publishing a Grove post (GrovePostForm.tsx's save(), or the scheduled-
+// publish cron's publishScheduledGrovePosts) creates a scheduled_announcements
+// row pointing at that post (`/grove#<id>`, 0062_scheduled_announcements.sql --
+// this used to be a single site_settings.announcement_link, before the
+// queue replaced that singleton). Deleting a post that's still the target
+// of an active or still-scheduled announcement would otherwise leave that
+// row pointing at a page that no longer exists. Checked before the delete
+// goes through, not after: if the post delete then fails, the worst case
+// is an announcement ended/cancelled early for a post that's still live
+// (obvious and easy to re-add from the admin dashboard) rather than the
+// dangling reference this exists to prevent. There can be more than one
+// matching row now (unlike the old singleton) -- an admin could have
+// manually pointed a second announcement at the same post -- so every
+// match is resolved, not just the first.
 export async function deleteGrovePost(postId: string): Promise<{ error: string | null }> {
   const supabase = createClient();
 
-  const { data: settings } = await supabase
-    .from("site_settings")
-    .select("announcement_link")
-    .eq("id", 1)
-    .single();
+  const { data: linkedAnnouncements } = await supabase
+    .from("scheduled_announcements")
+    .select("id, status")
+    .eq("link", `/grove#${postId}`)
+    .in("status", ["active", "scheduled"]);
 
-  if (settings?.announcement_link === `/grove#${postId}`) {
+  for (const announcement of linkedAnnouncements ?? []) {
     const { error: announcementError } = await supabase
-      .from("site_settings")
-      .update({ announcement_active: false })
-      .eq("id", 1);
+      .from("scheduled_announcements")
+      .update({ status: announcement.status === "active" ? "ended" : "cancelled" })
+      .eq("id", announcement.id);
     if (announcementError) {
       return { error: "Could not update the announcement banner. Try again." };
     }

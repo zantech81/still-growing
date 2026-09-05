@@ -10,15 +10,24 @@ type Post = {
   status: string;
   created_at: string;
   published_at: string | null;
+  scheduled_for: string | null;
 };
 
 const STATUS_BADGE: Record<string, string> = {
   draft: "bg-gray-100 text-gray-500",
   published: "bg-green-soft text-plum",
+  scheduled: "bg-blue-soft text-plum",
 };
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+// scheduled_for is a plain "YYYY-MM-DD" date, not a timestamp -- parsed as
+// UTC noon rather than UTC midnight so a negative-UTC-offset browser
+// timezone doesn't roll it back to the previous calendar day.
+function formatScheduledDate(isoDate: string) {
+  return new Date(`${isoDate}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 // Client component so a delete can remove the row in place rather than
@@ -51,7 +60,12 @@ export default function GrovePostsList({ initialPosts }: { initialPosts: Post[] 
 
   return (
     <div className="space-y-3">
-      {posts.map((post) => (
+      {posts.map((post) => {
+        const isScheduled = post.status === "draft" && !!post.scheduled_for;
+        const badgeKey = isScheduled ? "scheduled" : post.status;
+        const badgeLabel = isScheduled ? "Scheduled" : post.status === "published" ? "Published" : "Draft";
+
+        return (
         <div
           key={post.id}
           className="bg-white border border-pink-pale rounded-xl2 px-5 py-4 flex items-center gap-4"
@@ -59,12 +73,14 @@ export default function GrovePostsList({ initialPosts }: { initialPosts: Post[] 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
               <p className="font-medium text-plum truncate">{post.title}</p>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGE[post.status]}`}>
-                {post.status === "published" ? "Published" : "Draft"}
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGE[badgeKey]}`}>
+                {badgeLabel}
               </span>
             </div>
             <p className="text-xs text-gray-400">
-              {post.status === "published" && post.published_at
+              {isScheduled && post.scheduled_for
+                ? `Scheduled for ${formatScheduledDate(post.scheduled_for)}`
+                : post.status === "published" && post.published_at
                 ? `Published ${formatDate(post.published_at)}`
                 : `Created ${formatDate(post.created_at)}`}
             </p>
@@ -103,7 +119,8 @@ export default function GrovePostsList({ initialPosts }: { initialPosts: Post[] 
             </div>
           )}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
