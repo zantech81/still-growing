@@ -168,10 +168,14 @@ export async function notifyRootFor(rootedForUserId: string, rooterUserId: strin
 // who haven't opted out (notify_new_book). Inserts a notification row
 // per user regardless of that preference or of whether the email
 // succeeds, and marks email_sent only for successful, opted-in sends.
-// The template is fetched once up front, not once per user inside the
-// fan-out below -- this loop can run over every member on the
-// platform, and a per-recipient DB read would be pure waste.
-// Never throws. All errors are logged.
+// The template is fetched once up front, not once per user -- this can
+// run over every member on the platform, and a per-recipient DB read
+// would be pure waste. Rebuilt to use the same one-bulk-insert /
+// filter-before-building / sendBatchEmails shape as notifyGrovePost
+// below, rather than the unthrottled per-user Promise.allSettled fan-out
+// (N inserts, N individual sendEmail() calls, N individual updates) this
+// used to be -- see notifyGrovePost's own comment for why that pattern
+// doesn't scale. Never throws. All errors are logged.
 export async function notifyBookLaunch(bookId: string): Promise<void> {
   try {
     const supabase = createAdminClient();
@@ -185,45 +189,69 @@ export async function notifyBookLaunch(bookId: string): Promise<void> {
     if (!book || !users?.length) return;
 
     // Same for every recipient (bookTitle doesn't vary per user), so
-    // substituted once here rather than once per user in the loop below.
+    // substituted once here rather than once per user below.
     const subject = renderEmailSubject(fields, { bookTitle: book.title });
 
-    // Send to all users concurrently; each is independently error-safe.
-    await Promise.allSettled(
-      users.map(async (user) => {
-        // Insert in-app notification row.
-        const { data: notif } = await supabase
-          .from("notifications")
-          .insert({
-            user_id: user.id,
-            type: "new_book",
-            payload: {
-              book_id: bookId,
-              book_title: book.title,
-              book_slug: book.slug,
-            },
-            email_sent: false,
-          })
-          .select("id")
-          .single();
+    // One bulk insert for every user's in-app notification row, not
+    // users.length separate ones -- this happens regardless of
+    // notify_new_book, same as before, since it also drives the bell/dot,
+    // not just email. .select("id, user_id") back so a later successful
+    // send can be marked without a second per-user query.
+    const { data: notifRows } = await supabase
+      .from("notifications")
+      .insert(
+        users.map((user) => ({
+          user_id: user.id,
+          type: "new_book" as const,
+          payload: {
+            book_id: bookId,
+            book_title: book.title,
+            book_slug: book.slug,
+          },
+          email_sent: false,
+        }))
+      )
+      .select("id, user_id");
 
-        if (user.notify_new_book === false) return;
+    const notifIdByUserId = new Map((notifRows ?? []).map((n) => [n.user_id as string, n.id as string]));
 
-        const sent = await sendEmail({
-          to: user.email,
-          subject,
-          text: newBookEmailText(fields, book.title),
-          html: newBookEmailHtml(fields, book.title),
-        });
+    // Same "filter to opted-in users with a real email before building
+    // anything" shape as notifyGrovePost. users.email is `unique not
+    // null` (0001_init.sql, confirmed against the live table -- no user
+    // row has ever had a null email), so joining a sendBatchEmails result
+    // back to its notification row by email below is an exact match, not
+    // a heuristic.
+    const recipients = users
+      .filter((u) => u.notify_new_book !== false && u.email)
+      .map((u) => ({
+        to: u.email as string,
+        subject,
+        text: newBookEmailText(fields, book.title),
+        html: newBookEmailHtml(fields, book.title),
+      }));
 
-        if (sent && notif?.id) {
-          await supabase
-            .from("notifications")
-            .update({ email_sent: true })
-            .eq("id", notif.id);
-        }
-      })
-    );
+    if (recipients.length === 0) return;
+
+    const results = await sendBatchEmails(recipients);
+    const failed = results.filter((r) => !r.sent).length;
+    if (failed > 0) {
+      console.error(`[notifications] notifyBookLaunch: ${failed}/${results.length} emails failed for book ${bookId}`);
+    }
+
+    const userIdByEmail = new Map(users.map((u) => [u.email as string, u.id as string]));
+    const successNotifIds = results
+      .filter((r) => r.sent)
+      .map((r) => userIdByEmail.get(r.email))
+      .filter((userId): userId is string => !!userId)
+      .map((userId) => notifIdByUserId.get(userId))
+      .filter((id): id is string => !!id);
+
+    // One bulk update for every successful send, not a per-recipient
+    // UPDATE in a loop -- that would just move the fan-out problem from
+    // email-sending to the database.
+    if (successNotifIds.length > 0) {
+      await supabase.from("notifications").update({ email_sent: true }).in("id", successNotifIds);
+    }
   } catch (err) {
     console.error("[notifications] notifyBookLaunch error:", err);
   }
