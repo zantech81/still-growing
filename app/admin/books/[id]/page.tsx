@@ -11,7 +11,7 @@ export default async function EditBookPage({ params }: { params: { id: string } 
   const [{ data: book }, { data: collections }] = await Promise.all([
     supabase
       .from("books")
-      .select("id, collection_id, title, subtitle, description, slug, cover_image_url, banner_image_url, share_banner_image_url, sales_page_url, redemption_code, status, reveal_details, placeholder_text, gamification_config")
+      .select("id, collection_id, title, subtitle, description, slug, cover_image_url, banner_image_url, share_banner_image_url, sales_page_url, redemption_code, redemption_code_amazon, status, reveal_details, placeholder_text, gamification_config")
       .eq("id", params.id)
       .single(),
     supabase.from("collections").select("id, name").order("name"),
@@ -28,7 +28,7 @@ export default async function EditBookPage({ params }: { params: { id: string } 
   const [{ data: unlockRows }, verifiedEmails] = await Promise.all([
     createAdminClient()
       .from("book_unlocks")
-      .select("unlocked_at, users(email)")
+      .select("unlocked_at, unlock_source, users(email)")
       .eq("book_id", params.id)
       .order("unlocked_at", { ascending: false }),
     getCompletedPurchaseEmailSet(),
@@ -41,6 +41,7 @@ export default async function EditBookPage({ params }: { params: { id: string } 
       email,
       unlockedAt: row.unlocked_at as string,
       verified: !!email && verifiedEmails.has(email.toLowerCase().trim()),
+      viaAmazonCode: row.unlock_source === "amazon_code",
     };
   });
 

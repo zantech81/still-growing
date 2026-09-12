@@ -22,10 +22,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Fetch the book and its redemption code server-side (never expose code to client)
+  // Fetch the book and both its access codes server-side (never expose codes to client)
   const { data: book } = await supabase
     .from("books")
-    .select("id, redemption_code")
+    .select("id, redemption_code, redemption_code_amazon")
     .eq("id", bookId)
     .eq("status", "published")
     .single();
@@ -34,19 +34,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Book not found." }, { status: 404 });
   }
 
-  if (!book.redemption_code) {
+  if (!book.redemption_code && !book.redemption_code_amazon) {
     return NextResponse.json(
       { error: "This book doesn't have an access code set yet. Contact the author." },
       { status: 400 }
     );
   }
 
-  if (book.redemption_code.toUpperCase() !== code.toUpperCase().trim()) {
+  const submitted = code.toUpperCase().trim();
+  const matchesMain = !!book.redemption_code && book.redemption_code.toUpperCase() === submitted;
+  const matchesAmazon =
+    !!book.redemption_code_amazon && book.redemption_code_amazon.toUpperCase() === submitted;
+
+  if (!matchesMain && !matchesAmazon) {
     return NextResponse.json(
       { error: "That code doesn't match. Check your book for the correct access code." },
       { status: 400 }
     );
   }
+
+  // Which code matched, for the admin dashboard's verification breakdown
+  // (UnlockVerificationSummary.tsx) -- matchesMain and matchesAmazon can
+  // never both be true (books_redemption_codes_distinct, 0063), so this
+  // ordering doesn't hide a real ambiguity.
+  const unlockSource: "code" | "amazon_code" = matchesMain ? "code" : "amazon_code";
 
   // Idempotent: already unlocked is a success
   const { data: existing } = await supabase
@@ -62,7 +73,7 @@ export async function POST(request: NextRequest) {
 
   const { error: insertError } = await supabase
     .from("book_unlocks")
-    .insert({ user_id: user.id, book_id: bookId });
+    .insert({ user_id: user.id, book_id: bookId, unlock_source: unlockSource });
 
   if (insertError) {
     // Unique violation = race condition where it was already inserted; treat as success

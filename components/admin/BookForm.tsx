@@ -28,6 +28,7 @@ type BookData = {
   share_banner_image_url: string | null;
   sales_page_url: string | null;
   redemption_code: string | null;
+  redemption_code_amazon: string | null;
   status: "draft" | "coming_soon" | "published";
   reveal_details: boolean;
   placeholder_text: string | null;
@@ -67,6 +68,7 @@ export default function BookForm({ collections, book }: Props) {
     shareBannerImageUrl: book?.share_banner_image_url ?? "",
     salesPageUrl: book?.sales_page_url ?? "",
     redemptionCode: book?.redemption_code ?? "",
+    redemptionCodeAmazon: book?.redemption_code_amazon ?? "",
     status: book?.status ?? ("draft" as "draft" | "coming_soon" | "published"),
     revealDetails: book?.reveal_details ?? true,
     placeholderText: book?.placeholder_text ?? DEFAULT_PLACEHOLDER_TEXT,
@@ -202,6 +204,7 @@ export default function BookForm({ collections, book }: Props) {
       share_banner_image_url: form.shareBannerImageUrl || null,
       sales_page_url: form.salesPageUrl.trim() || null,
       redemption_code: form.redemptionCode.toUpperCase().trim() || null,
+      redemption_code_amazon: form.redemptionCodeAmazon.toUpperCase().trim() || null,
       status: form.status,
       reveal_details: form.revealDetails,
       placeholder_text: form.placeholderText.trim() || null,
@@ -217,11 +220,15 @@ export default function BookForm({ collections, book }: Props) {
       if (error.code === "23505") {
         if (error.message.includes("slug")) {
           setErrors({ slug: "A book with this slug already exists." });
+        } else if (error.message.includes("redemption_code_amazon")) {
+          setErrors({ redemptionCodeAmazon: "This Amazon access code is already used by another book." });
         } else if (error.message.includes("redemption_code")) {
           setErrors({ redemptionCode: "This access code is already used by another book." });
         } else {
           setErrors({ form: "A duplicate value was detected. Check slug and access code." });
         }
+      } else if (error.code === "23514" && error.message.includes("books_redemption_codes_distinct")) {
+        setErrors({ redemptionCodeAmazon: "The Amazon access code must be different from the main access code." });
       } else {
         console.error("[BookForm] Save error:", error);
         setErrors({
@@ -336,6 +343,27 @@ export default function BookForm({ collections, book }: Props) {
           }
           className={`${input(errors.redemptionCode)} uppercase tracking-widest`}
           placeholder="GROWBABY"
+          spellCheck={false}
+        />
+      </Field>
+
+      {/* Amazon KDP access code */}
+      <Field
+        label="Access code (Amazon)"
+        error={errors.redemptionCodeAmazon}
+        hint="Separate code for Amazon KDP buyers. Either code unlocks the book; optional."
+      >
+        <input
+          type="text"
+          value={form.redemptionCodeAmazon}
+          onChange={(e) =>
+            setForm((f) => ({
+              ...f,
+              redemptionCodeAmazon: e.target.value.toUpperCase().replace(/\s/g, ""),
+            }))
+          }
+          className={`${input(errors.redemptionCodeAmazon)} uppercase tracking-widest`}
+          placeholder="GROWBABYKDP"
           spellCheck={false}
         />
       </Field>
