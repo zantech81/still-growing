@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendMetaPurchaseEvent } from "@/lib/metaCapi";
 
 // Systeme.io webhook receiver for "new sale" and "canceled sale/refund"
 // events (configure under Systeme.io: Settings > Webhooks, pointed at
@@ -121,6 +122,14 @@ export async function POST(request: NextRequest) {
   if (error) {
     console.error("[webhooks/systeme] Write failed:", error);
     return NextResponse.json({ error: "Write failed" }, { status: 500 });
+  }
+
+  // Purchase funnel-tracking event, sale only (never for a refund) -- see
+  // lib/metaCapi.ts. amount/currency here are the same verified
+  // order.totalPrice/pricePlan.currency values just written to `purchases`
+  // above, not a separate parse.
+  if (isSale && amount != null && currency) {
+    await sendMetaPurchaseEvent({ email, orderId, amountCents: amount, currency });
   }
 
   return NextResponse.json({ ok: true });

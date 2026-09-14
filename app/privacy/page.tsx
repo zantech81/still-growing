@@ -1,4 +1,8 @@
-// Legal content approved by Zan 2026-08-21. Text is verbatim -- only the
+// Legal content approved by Zan 2026-08-21; the Meta-disclosure additions
+// below (2026-09-14, added alongside the funnel-tracking build) are a
+// Claude draft NOT yet reviewed by Zan the way the rest of this page's
+// text was -- check the exact wording before treating it as final. Text
+// is otherwise verbatim -- only the
 // Markdown structure (headings/bold/lists) is adapted to JSX. Public,
 // static page: no auth, no data fetching, same "true public" pattern as
 // app/reviews/page.tsx and app/page.tsx, just without force-dynamic since
@@ -7,7 +11,7 @@ export default function PrivacyPage() {
   return (
     <main className="max-w-2xl mx-auto px-6 py-16">
       <h1 className="text-4xl mb-2">Privacy Policy</h1>
-      <p className="text-sm text-gray-400 italic mb-8">Last updated: August 21, 2026</p>
+      <p className="text-sm text-gray-400 italic mb-8">Last updated: September 14, 2026</p>
 
       <p className="text-ink leading-relaxed mb-8">
         Effective as of the date above, this Privacy Policy explains how Still Growing
@@ -94,8 +98,12 @@ export default function PrivacyPage() {
         <li>Maintain and improve the security and reliability of the service.</li>
       </ul>
       <p className="text-ink leading-relaxed">
-        We do not sell your personal information, and we do not use your data for third-party
-        advertising.
+        We use limited purchase and browsing-event data &ndash; including a hashed (not plaintext)
+        version of your email address, your order value, and which pages you&apos;ve viewed &ndash;
+        to measure the effectiveness of our advertising with Meta (Facebook/Instagram), through
+        the Meta Pixel on our checkout pages and a matching server-side integration on
+        stillgrowing.co. Meta may also use this data, under its own terms, to build audiences for
+        future Still Growing ads. We do not sell your personal information.
       </p>
 
       <h2 className="text-xl mt-10 mb-3">4. Legal basis for processing (EU/UK visitors)</h2>
@@ -120,6 +128,7 @@ export default function PrivacyPage() {
         <li><strong>Systeme.io</strong> &ndash; powers our sales funnel and checkout pages (baby.stillgrowing.co), and passes us confirmation of successful or refunded orders.</li>
         <li><strong>Stripe</strong> &ndash; processes payments through our Systeme.io checkout; Still Growing never receives or stores your full card details.</li>
         <li><strong>Google</strong> &ndash; if you choose to sign in with Google, Google shares your basic account info (name, email, profile image) with us per your consent during that sign-in flow.</li>
+        <li><strong>Meta</strong> &ndash; receives a hashed version of your email address, plus order value/currency and page-view events, from our checkout funnel and from a server-side integration on stillgrowing.co, used to measure and improve our advertising.</li>
       </ul>
       <p className="text-ink leading-relaxed">
         We do not share your information with any other third party except where required by
@@ -129,8 +138,11 @@ export default function PrivacyPage() {
 
       <h2 className="text-xl mt-10 mb-3">6. Cookies</h2>
       <p className="text-ink leading-relaxed">
-        We use only the cookies necessary to keep you signed in and to remember your session. We
-        do not currently use cookies for advertising or cross-site tracking on stillgrowing.co.
+        We use cookies necessary to keep you signed in and to remember your session on
+        stillgrowing.co itself. Our checkout funnel at baby.stillgrowing.co also uses the Meta
+        Pixel, which sets advertising/cross-site tracking cookies to help us measure ad
+        performance; you can manage this through your Meta ad preferences, or by blocking
+        third-party cookies in your browser.
       </p>
 
       <h2 className="text-xl mt-10 mb-3">7. International data transfers</h2>
