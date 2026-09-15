@@ -303,3 +303,28 @@ export function groveNewPostEmailHtml(fields: EmailTemplateFields, title: string
 export function groveNewPostEmailText(fields: EmailTemplateFields, title: string, excerpt: string, postId: string): string {
   return renderEmailText(fields, { title, excerpt }, `${siteUrl}/grove?post=${postId}#${postId}`);
 }
+
+// Sent on every Systeme.io "Sale cancelled" event (app/api/webhooks/
+// systeme/route.ts), regardless of whether lib/refunds.ts's automatic
+// book_unlocks revocation succeeded -- revocationStatus carries which
+// outcome happened (revoked / skipped as a gift purchase / no matching
+// account / nothing to revoke / an error) so the admin knows whether this
+// one needs manual follow-up, same "manual backstop either way" reasoning
+// as unlock_alert above. bookId links to whichever book's admin page has
+// the closest visibility into this reader's unlocks (there's no dedicated
+// purchases admin page); falls back to the books list if not resolved.
+export function refundNotificationEmailHtml(
+  fields: EmailTemplateFields,
+  vars: { email: string; productName: string; orderId: string; amountFormatted: string; revocationStatus: string },
+  bookId: string | null
+): string {
+  return renderEmailHtml(fields, vars, bookId ? `${siteUrl}/admin/books/${bookId}` : `${siteUrl}/admin/books`);
+}
+
+export function refundNotificationEmailText(
+  fields: EmailTemplateFields,
+  vars: { email: string; productName: string; orderId: string; amountFormatted: string; revocationStatus: string },
+  bookId: string | null
+): string {
+  return renderEmailText(fields, vars, bookId ? `${siteUrl}/admin/books/${bookId}` : `${siteUrl}/admin/books`);
+}

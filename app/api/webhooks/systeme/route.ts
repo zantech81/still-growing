@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendMetaPurchaseEvent } from "@/lib/metaCapi";
+import { revokeAccessForRefund, describeRevocationOutcome } from "@/lib/refunds";
+import {
+  sendEmail,
+  getEmailTemplate,
+  renderEmailSubject,
+  refundNotificationEmailHtml,
+  refundNotificationEmailText,
+} from "@/lib/sendgrid";
 
 // Systeme.io webhook receiver for "new sale" and "canceled sale/refund"
 // events (configure under Systeme.io: Settings > Webhooks, pointed at
@@ -23,6 +31,12 @@ import { sendMetaPurchaseEvent } from "@/lib/metaCapi";
 // path turns out wrong again later.
 
 export const runtime = "nodejs"; // needs Node's crypto + raw request body
+
+// Same address and reasoning as app/api/cron/unlock-alert/route.ts's
+// ALERT_RECIPIENT: no "send alerts to the admin" convention/env var exists
+// in this project, and this is the same real inbox that already gets
+// unlock-cluster alerts.
+const ADMIN_ALERT_RECIPIENT = "admin@stillgrowing.co";
 
 type SystemeWebhookPayload = {
   customer?: { email?: string };
@@ -102,33 +116,126 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  const row = {
-    systeme_order_id: orderId,
-    email,
-    product_name: productName,
-    product_tag: productTag,
-    amount,
-    currency,
-    event_type: eventType || "unknown",
-    status: isRefund ? "refunded" : "completed",
-    raw_payload: payload,
-    ...(isRefund ? { refunded_at: new Date().toISOString() } : {}),
-  };
+  if (isRefund) {
+    // Targeted update, not a full-row upsert: unlike "New sale" (confirmed
+    // against real captured deliveries, 2026-08-21), "Sale cancelled"'s
+    // payload shape has never been verified against a real event, and may
+    // well carry fewer fields. Upserting the WHOLE row here would silently
+    // null out product_name/product_tag/amount/currency that the original
+    // sale event already recorded correctly. Only status/refunded_at
+    // change on the existing row.
+    let matchedExisting = false;
+    if (orderId) {
+      const { data: updated, error: updateError } = await supabase
+        .from("purchases")
+        .update({ status: "refunded", refunded_at: new Date().toISOString(), event_type: eventType || "unknown" })
+        .eq("systeme_order_id", orderId)
+        .select("id");
 
+      if (updateError) {
+        console.error("[webhooks/systeme] Refund update failed:", updateError);
+        return NextResponse.json({ error: "Write failed" }, { status: 500 });
+      }
+      matchedExisting = (updated?.length ?? 0) > 0;
+    }
+
+    if (!matchedExisting) {
+      // No prior "New sale" row to update against -- out-of-order
+      // delivery, or the original sale event was missed. Insert what we
+      // have so the refund is still recorded somewhere rather than
+      // silently dropped.
+      console.warn(
+        `[webhooks/systeme] No existing purchase row for order ${orderId ?? "(none)"} on refund, inserting standalone row`
+      );
+      const { error: insertError } = await supabase.from("purchases").insert({
+        systeme_order_id: orderId,
+        email,
+        product_name: productName,
+        product_tag: productTag,
+        amount,
+        currency,
+        event_type: eventType || "unknown",
+        status: "refunded",
+        raw_payload: payload,
+        refunded_at: new Date().toISOString(),
+      });
+      if (insertError) {
+        console.error("[webhooks/systeme] Refund insert failed:", insertError);
+        return NextResponse.json({ error: "Write failed" }, { status: 500 });
+      }
+    }
+
+    // 7-day money-back guarantee (2026-09-15): stop future access, don't
+    // touch anything already read/watched -- see lib/refunds.ts.
+    const outcome = await revokeAccessForRefund(email, productTag);
+    const revocationStatus = describeRevocationOutcome(outcome);
+    console.log(`[webhooks/systeme] Refund revocation for order ${orderId ?? "(none)"}: ${outcome.kind}`);
+
+    // Admin-email backstop, sent regardless of whether the automatic
+    // revocation above actually succeeded -- gift purchases in particular
+    // are never auto-revoked (see lib/refunds.ts), so the admin needs to
+    // see every refund either way.
+    try {
+      const fields = await getEmailTemplate("refund_notification");
+      const vars = {
+        email: email ?? "(no email on order)",
+        productName: productName ?? "(unknown product)",
+        orderId: orderId ?? "(none)",
+        amountFormatted:
+          amount != null && currency ? `${(amount / 100).toFixed(2)} ${currency.toUpperCase()}` : "(unknown amount)",
+        revocationStatus,
+      };
+      const bookId = outcome.kind === "revoked" ? outcome.bookId : null;
+      await sendEmail({
+        to: ADMIN_ALERT_RECIPIENT,
+        subject: renderEmailSubject(fields, vars),
+        html: refundNotificationEmailHtml(fields, vars, bookId),
+        text: refundNotificationEmailText(fields, vars, bookId),
+      });
+    } catch (err) {
+      console.error("[webhooks/systeme] Refund notification email failed:", err);
+    }
+
+    return NextResponse.json({ ok: true, revocation: outcome.kind });
+  }
+
+  // isSale path
   const { error } = orderId
-    ? await supabase.from("purchases").upsert(row, { onConflict: "systeme_order_id" })
-    : await supabase.from("purchases").insert(row);
+    ? await supabase.from("purchases").upsert(
+        {
+          systeme_order_id: orderId,
+          email,
+          product_name: productName,
+          product_tag: productTag,
+          amount,
+          currency,
+          event_type: eventType || "unknown",
+          status: "completed",
+          raw_payload: payload,
+        },
+        { onConflict: "systeme_order_id" }
+      )
+    : await supabase.from("purchases").insert({
+        systeme_order_id: orderId,
+        email,
+        product_name: productName,
+        product_tag: productTag,
+        amount,
+        currency,
+        event_type: eventType || "unknown",
+        status: "completed",
+        raw_payload: payload,
+      });
 
   if (error) {
     console.error("[webhooks/systeme] Write failed:", error);
     return NextResponse.json({ error: "Write failed" }, { status: 500 });
   }
 
-  // Purchase funnel-tracking event, sale only (never for a refund) -- see
-  // lib/metaCapi.ts. amount/currency here are the same verified
-  // order.totalPrice/pricePlan.currency values just written to `purchases`
-  // above, not a separate parse.
-  if (isSale && amount != null && currency) {
+  // Purchase funnel-tracking event -- see lib/metaCapi.ts. amount/currency
+  // here are the same verified order.totalPrice/pricePlan.currency values
+  // just written to `purchases` above, not a separate parse.
+  if (amount != null && currency) {
     await sendMetaPurchaseEvent({ email, orderId, amountCents: amount, currency });
   }
 

@@ -12,6 +12,7 @@ export const EMAIL_TEMPLATE_TYPES = [
   "birthday",
   "unlock_alert",
   "grove_post",
+  "refund_notification",
 ] as const;
 
 export type EmailTemplateType = (typeof EMAIL_TEMPLATE_TYPES)[number];
@@ -23,6 +24,7 @@ export const EMAIL_TEMPLATE_LABELS: Record<EmailTemplateType, string> = {
   birthday: "Birthday",
   unlock_alert: "Unlock cluster alert",
   grove_post: "New Grove post",
+  refund_notification: "Refund notification",
 };
 
 // unlock_alert always goes to admin@stillgrowing.co (app/api/cron/unlock-alert),
@@ -36,6 +38,7 @@ export const EMAIL_TEMPLATE_IS_ADMIN_ONLY: Record<EmailTemplateType, boolean> = 
   birthday: false,
   unlock_alert: true,
   grove_post: false,
+  refund_notification: true,
 };
 
 export type EmailTemplateFields = {
@@ -95,6 +98,12 @@ export const DEFAULT_EMAIL_TEMPLATES: Record<EmailTemplateType, EmailTemplateFie
     body: "{{title}}\n\n{{excerpt}}",
     buttonLabel: "Read it in the Grove →",
   },
+  refund_notification: {
+    subject: "Refund processed: {{email}}",
+    heading: "A refund just came through",
+    body: "{{email}} was refunded for {{productName}} (order #{{orderId}}, {{amountFormatted}}).\n\n{{revocationStatus}}",
+    buttonLabel: "Review this book's unlocks →",
+  },
 };
 
 // Sample values for the admin editor's live preview -- fake but
@@ -110,6 +119,13 @@ export const EMAIL_TEMPLATE_SAMPLE_VARS: Record<EmailTemplateType, Record<string
     title: "A quick update",
     excerpt: "A short preview of what this post says, trimmed down to a sentence or two.",
   },
+  refund_notification: {
+    email: "reader@example.com",
+    productName: "Life Lessons from a Baby Digital Download",
+    orderId: "12345678",
+    amountFormatted: "$14.99",
+    revocationStatus: "Access to Life Lessons from a Baby was automatically revoked for this reader.",
+  },
 };
 
 // Sample destination link for the preview button -- real sends always
@@ -122,6 +138,7 @@ export const EMAIL_TEMPLATE_SAMPLE_HREF: Record<EmailTemplateType, string> = {
   birthday: "/library",
   unlock_alert: "/admin/books/00000000-0000-0000-0000-000000000000",
   grove_post: "/grove",
+  refund_notification: "/admin/books/00000000-0000-0000-0000-000000000000",
 };
 
 // Field-by-field fallback, not whole-row: an admin who only customizes
