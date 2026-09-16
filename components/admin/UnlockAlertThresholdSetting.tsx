@@ -74,7 +74,7 @@ export default function UnlockAlertThresholdSetting({ initialThreshold }: Props)
         <button
           onClick={save}
           disabled={saving || !dirty || !valid}
-          className="bg-plum text-white px-5 py-2 rounded-xl2 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+          className="bg-plum text-white px-6 py-2.5 rounded-xl2 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           {saving ? "Saving…" : "Save"}
         </button>

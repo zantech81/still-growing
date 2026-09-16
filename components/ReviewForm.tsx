@@ -9,7 +9,7 @@ function StarIcon({ filled }: { filled: boolean }) {
       height="30"
       viewBox="0 0 24 24"
       fill={filled ? "#E5B94E" : "none"}
-      stroke={filled ? "#E5B94E" : "#D1D5DB"}
+      stroke={filled ? "#E5B94E" : "rgba(58, 58, 58, 0.2)"}
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"

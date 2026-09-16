@@ -52,7 +52,7 @@ function Stars({ rating }: { rating: number }) {
           height="14"
           viewBox="0 0 24 24"
           fill={n <= rating ? "#E5B94E" : "none"}
-          stroke={n <= rating ? "#E5B94E" : "#E5E7EB"}
+          stroke={n <= rating ? "#E5B94E" : "rgba(58, 58, 58, 0.2)"}
           strokeWidth="1.5"
         >
           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />

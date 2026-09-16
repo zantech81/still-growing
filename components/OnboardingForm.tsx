@@ -290,7 +290,7 @@ export default function OnboardingForm({ avatarColor, isAdmin }: Props) {
         <button
           onClick={() => handleSave()}
           disabled={submitting || nicknameStatus === "taken"}
-          className="bg-plum text-white px-6 py-3 rounded-xl2 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+          className="bg-plum text-white px-6 py-2.5 rounded-xl2 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           {submitting ? "Saving…" : "Start my journey"}
         </button>

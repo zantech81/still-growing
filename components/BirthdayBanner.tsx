@@ -24,7 +24,7 @@ export default function BirthdayBanner({ name }: { name: string }) {
     <div
       className="sticky top-14 z-40 border-b border-gold/40"
       style={{
-        background: "linear-gradient(135deg, #FDF4E3 0%, #F9E8EF 60%, #FDF4E3 100%)",
+        background: "linear-gradient(135deg, #FBF7F2 0%, #F7E1E9 60%, #FBF7F2 100%)",
       }}
     >
       <div className="max-w-xl mx-auto px-5 py-4 flex items-start gap-3">

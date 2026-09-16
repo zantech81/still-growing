@@ -15,7 +15,7 @@ export default async function AdminGrovePage() {
         <h1 className="text-3xl font-display text-plum">The Grove</h1>
         <Link
           href="/admin/grove/new"
-          className="bg-plum text-white px-4 py-2 rounded-xl2 text-sm font-medium hover:opacity-90 transition-opacity"
+          className="bg-plum text-white px-6 py-2.5 rounded-xl2 text-sm font-medium hover:opacity-90 transition-opacity"
         >
           + New post
         </Link>

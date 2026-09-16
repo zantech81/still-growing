@@ -328,7 +328,7 @@ export default function ReflectionActions({
         <button
           onClick={saveEdit}
           disabled={busy}
-          className="text-xs bg-pink-pale hover:bg-pink-dusty text-pink-deep px-3 py-1 rounded-lg transition-colors disabled:opacity-50"
+          className="text-xs bg-pink-pale hover:bg-pink-dusty text-pink-deep px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
         >
           {busy ? "Saving…" : "Continue"}
         </button>

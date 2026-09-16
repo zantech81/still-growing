@@ -97,7 +97,7 @@ export default function EmailPreferences({
         <button
           onClick={save}
           disabled={saving || !dirty}
-          className="bg-pink-pale hover:bg-pink-dusty transition-colors text-pink-deep font-display px-5 py-2.5 rounded-xl2 disabled:opacity-50"
+          className="bg-pink-pale hover:bg-pink-dusty transition-colors text-pink-deep font-display px-5 py-3 rounded-xl2 disabled:opacity-50"
         >
           {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
         </button>

@@ -137,7 +137,7 @@ export default async function JourneyPage({
               <text x="44" y="42" textAnchor="middle" fontSize="20" fontWeight="600" fill="#3A3A3A" fontFamily="Georgia, serif">
                 {badgesEarned}
               </text>
-              <text x="44" y="58" textAnchor="middle" fontSize="11" fill="#9CA3AF" fontFamily="system-ui, sans-serif">
+              <text x="44" y="58" textAnchor="middle" fontSize="11" fill="rgba(58, 58, 58, 0.45)" fontFamily="system-ui, sans-serif">
                 of {totalChapters}
               </text>
             </svg>
