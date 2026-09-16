@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import AppShell from "@/components/AppShell";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stillgrowing.co";
 
@@ -53,13 +55,22 @@ function formatDate(iso: string) {
 // public/embeds/reviews-widget.js reuses the exact same endpoint, so
 // there's only one place that ever decides what's safe to show publicly.
 export default async function ReviewsPage() {
-  const res = await fetch(`${siteUrl}/api/reviews/public`, { cache: "no-store" });
+  const supabase = createClient();
+  const [{ data: { user } }, res] = await Promise.all([
+    supabase.auth.getUser(),
+    fetch(`${siteUrl}/api/reviews/public`, { cache: "no-store" }),
+  ]);
   const data = await res.json().catch(() => ({ reviews: [] }));
   const reviews: Review[] = data.reviews ?? [];
 
   return (
-    <AppShell>
+    <AppShell user={user}>
       <main className="max-w-2xl mx-auto px-6 py-16">
+        {!user && (
+          <Link href="/" className="inline-block text-sm text-pink-deep hover:underline mb-8">
+            ← Back to stillgrowing.co
+          </Link>
+        )}
         <div className="text-center mb-12">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/logo-page-header.png" alt="Still Growing" className="h-12 w-auto mx-auto mb-6" />
