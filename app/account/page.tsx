@@ -28,7 +28,7 @@ export default async function AccountPage() {
 
   return (
     <AppShell requireNickname={false} user={user} dataPromise={appShellDataPromise}>
-      <main className="max-w-lg mx-auto px-5 py-8">
+      <main className="max-w-3xl mx-auto px-5 py-8">
         <h1 className="text-3xl mb-10">Account</h1>
         <AccountForm
           userId={user.id}

@@ -43,7 +43,7 @@ export default async function CirclePage({
   if (unlocks.length === 0) {
     return (
       <AppShell user={user} dataPromise={appShellDataPromise}>
-        <main className="max-w-xl mx-auto px-5 py-16 text-center">
+        <main className="max-w-3xl mx-auto px-5 py-16 text-center">
           <h1 className="text-3xl mb-3">The Circle</h1>
           <p className="text-gray-400 mb-6 italic text-sm">
             The Circle opens once you have entered your book access code. Find it in your Library.
@@ -74,7 +74,7 @@ export default async function CirclePage({
   if (!selected) {
     return (
       <AppShell user={user} dataPromise={appShellDataPromise}>
-        <main className="max-w-xl mx-auto px-5 py-8">
+        <main className="max-w-3xl mx-auto px-5 py-8">
           <h1 className="text-3xl mb-0.5">Choose a Circle</h1>
           <p className="text-gray-400 mb-8 italic text-sm">Pick which book's Circle to open.</p>
 
@@ -192,7 +192,7 @@ export default async function CirclePage({
 
   return (
     <AppShell user={user} dataPromise={appShellDataPromise}>
-      <main className="max-w-xl mx-auto px-5 py-8">
+      <main className="max-w-3xl mx-auto px-5 py-8">
         <div className="mb-8">
           <h1 className="text-3xl mb-0.5">The Circle</h1>
           <p className="text-gray-400 italic text-sm mb-3">{book.title}</p>

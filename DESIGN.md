@@ -98,7 +98,7 @@ The palette groups into one warm neutral base, one primary accent family (pink),
 
 Standard Tailwind responsive breakpoints, no custom container/grid system observed. Content is generally centered in a max-width column with page-level padding; admin list/table pages use denser spacing than reader-facing pages. No project-wide documented spacing scale was found — spacing values (`p-`, `gap-`, `px-`/`py-`) are chosen per-component. This is the second-most-likely area to show drift under audit.
 
-**Content width:** `max-w-3xl` (768px) is the standard reader-page width (Library, Journey, Growing, and the homepage's below-fold content). Circle is a deliberate exception, kept at `max-w-xl` (576px) to respect the 65–75ch prose-width guidance above for its journal-style reflection quotes — widening it (checked at both `max-w-2xl` and `max-w-3xl`) pushed lines past 80 characters with no compensating benefit, since a stacked feed of short quotes has no dead space to fill the way a card grid does. `/login` stays at `max-w-sm` (384px) as a minimal auth form, not a reader page.
+**Content width:** `max-w-3xl` (768px) is the standard width across the entire reader app (Library, Journey, Circle, Growing, Account, homepage). `/login` is a deliberate exception at `max-w-sm`, since it's a minimal single-field auth form, not a content page. Circle's reflection quotes run longer than the 65–75ch prose-readability guideline above as a result — accepted for site-wide visual consistency.
 
 ## Elevation & Depth
 
