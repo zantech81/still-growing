@@ -197,7 +197,7 @@ export default async function CirclePage({
           <h1 className="text-3xl mb-0.5">The Circle</h1>
           <p className="text-gray-400 italic text-sm mb-3">{book.title}</p>
           <p className="text-sm text-gray-500 leading-relaxed">
-            Real reflections from readers on the same twelve chapters as you. Add
+            Real reflections from readers walking these chapters alongside you. Add
             your own when you claim a badge, and keep adding more anytime as you
             revisit a chapter and discover something new in yourself. No one can
             reply, message, or reach you here. Just a safe space to write exactly

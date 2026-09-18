@@ -86,11 +86,11 @@ export default async function HomePage() {
 
           <div className="order-2 md:order-1 text-center md:text-left">
             <h1 className="text-4xl md:text-5xl leading-tight mb-5">
-              Twelve chapters. Twelve badges. One growing circle.
+              Every chapter. Every badge. One growing circle.
             </h1>
             <p className="leading-relaxed mb-6 md:pr-6">
               Every badge in the book has a home online -- a short video, a place for your own
-              reflection, and a circle of people walking the same twelve chapters as you. Nothing
+              reflection, and a circle of people walking these chapters alongside you. Nothing
               to buy, nothing to prove.
             </p>
             <div className="flex justify-center md:justify-start mb-7">
