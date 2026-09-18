@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import AppShell from "@/components/AppShell";
 import BannerImageExpand from "@/components/BannerImageExpand";
 import ShareButton from "@/components/ShareButton";
+import SproutIllustration from "@/components/SproutIllustration";
 
 export default async function JourneyPage({
   params,
@@ -141,6 +142,11 @@ export default async function JourneyPage({
                 of {totalChapters}
               </text>
             </svg>
+
+            {/* One-time "growing" moment: only here, only once all badges
+                are claimed -- not a recurring per-visit or per-chapter
+                treatment. Ring math/colors above are untouched. */}
+            {allComplete && <SproutIllustration size="small" />}
 
             <div>
               <p className="font-display text-xl text-plum leading-snug">
