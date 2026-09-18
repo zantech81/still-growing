@@ -132,6 +132,17 @@ No borders or clipping patterns beyond these two radii were found in repeated us
 ### Badges
 - **Verified badge / unread-count pill:** `rounded-full`, solid `bg-pink-deep text-white`, small fixed size (`min-w-[18px] h-[18px]`) — the app's smallest recurring shape token, used identically in `CircleUnreadCount.tsx` and `admin/AdminNav.tsx`.
 
+## Illustration
+
+Direction B's site-wide illustrated-warmth system, extending the existing palette and shape language rather than replacing it. Flagship instance: the homepage (`/`) hero.
+
+**Sprout** (`components/SproutIllustration.tsx`): the established brand mascot, a chibi baby character with an existing reference sheet (kawaii flat-vector, thin dark-brown linework, cel-shaded pastel, wispy light-brown hair, sage-green trim) already used in the milestone videos and the avatar picker. One asset today, `public/illustrations/hero-sprout-growing.png` (transparent PNG, Sprout at the base of a blooming badge tree) — one pose only, no pose-variant prop yet. Two size variants: `hero` (large Persuade placement, e.g. the homepage two-column hero) and `small` (reserved for a future Operate empty-state touch on Library/Circle/Growing, not yet built).
+
+**`<AvatarStack>`** (`components/AvatarStack.tsx`): the "N people already here" social-proof pattern — a row of real members' avatars (sampled from `public_profiles`, filtered to profiles with a chosen `avatar_key` so the row reads as illustrated art, not initials) next to a real sitewide count. The count is total badges claimed (`count(*)` on `user_badges`, the ground-truth earned-badge join table, not the denormalized `user_books.badges_earned` counter) rather than a member count — it pairs with the "Twelve badges" headline narrative and both `public_profiles`/`user_badges` are already anon-readable, so it renders identically for signed-out cold traffic and signed-in readers. Renders nothing when there's no real data yet (no member sample, or zero badges claimed) rather than showing a hollow "0" or an empty avatar row.
+
+### Named Rules
+**The Persuade-Scale Rule.** Illustration appears at hero scale only on Persuade surfaces (homepage, and by extension `/login`, `/reviews` per the site-wide plan). Operate surfaces (Library, Journey, Circle, Growing, Account, Admin) get the `small` variant at most, in a precise supporting-detail role (an empty state, a completion moment) — never a large hero treatment. A hero-scale Sprout illustration on an Operate surface is off-system, the same way a `bg-plum` admin button on a reader page is off-system for the Two-Button-Language Rule above.
+
 ## Do's and Don'ts
 
 ### Do:
@@ -140,9 +151,11 @@ No borders or clipping patterns beyond these two radii were found in repeated us
 - **Do** reserve `leaf`/`leaf-soft` for Growing and `marigold`/`marigold-soft` for Circle; do not reuse them as generic accent color on other pages.
 - **Do** use `rounded-xl2` for primary containers/CTAs and `rounded-lg`/`rounded-full` for secondary chrome, matching the existing two-tier shape language.
 - **Do** apply `font-display` to headings and keep body copy in `font-body` (the loaded Nunito variable, never the literal font name "Nunito").
+- **Do** use `<SproutIllustration>` and `<AvatarStack>` for illustrated-warmth and social-proof needs rather than a page hand-placing its own `<img>` or hardcoding a count.
 
 ### Don't:
 - **Don't** introduce `box-shadow`-based elevation; this system conveys depth through pale-tint backgrounds, not shadows.
 - **Don't** introduce a flat white card background; content tiles sit on pale accent tints over the cream page.
 - **Don't** reach for raw Tailwind gray/slate/amber utilities (`gray-200`, `gray-300`, `amber-400`, etc.) where a palette token already covers the same role — several are already in the codebase (see audit findings) and are off-palette by the project's own token set.
 - **Don't** hard-code a palette hex value (e.g. `#E8A0B8`) in a `style` prop or inline SVG fill where a Tailwind class (`fill-pink-dusty`, if extended, or the `bg-`/`text-` utility) would do the same job — several current inline-SVG uses are legitimate (Tailwind classes don't reach SVG `fill`/`stroke` without arbitrary-value syntax) but should use the token value exactly, never an approximation.
+- **Don't** place a hero-scale illustration on an Operate surface, or invent a placeholder/fake social-proof number — `<AvatarStack>` renders nothing rather than a hollow zero when there's no real data yet.

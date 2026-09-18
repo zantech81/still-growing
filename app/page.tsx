@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import SproutIllustration from "@/components/SproutIllustration";
+import AvatarStack from "@/components/AvatarStack";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stillgrowing.co";
 
@@ -62,83 +64,101 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
-// This page is the digital continuation of "Your Journey Continues",
-// the closing CTA page in the book. Same three-point pitch, same voice,
-// same "Begin" language. Anyone landing here typed in the plain
-// stillgrowing.co URL from the book (not a /baby/chN deep link).
+// This page is the digital continuation of the book's own closing CTA
+// page. Anyone landing here typed in the plain stillgrowing.co URL from
+// the book (not a /baby/chN deep link). Hero is Direction B, the site-wide
+// illustrated-warmth system's flagship instance (see DESIGN.md's
+// Illustration section); everything below it is the pre-existing pitch,
+// unchanged in content, just relocated under the new hero.
 export default async function HomePage() {
   const [featuredReviews, salesUrl] = await Promise.all([getFeaturedReviews(), getSalesUrl()]);
 
   return (
-    <main className="max-w-xl mx-auto px-6 py-20 text-center">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/brand/logo-page-header.png" alt="Still Growing" className="h-14 w-auto mx-auto mb-8" />
-      <h1 className="text-4xl mb-2">Your Journey Continues</h1>
-      <p className="italic text-pink-deep mb-8">Where the badges become real</p>
+    <main className="px-6 py-16 md:py-20">
+      <div className="max-w-5xl mx-auto">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/logo-page-header.png" alt="Still Growing" className="h-14 w-auto mx-auto mb-10 md:mb-14" />
 
-      <p className="mb-10 leading-relaxed">
-        Every badge in this book has a home online. A short video that goes with it,
-        and a circle of people walking the same twelve chapters as you.
-        Nothing to buy, nothing to prove. Just bring your reflections.
-      </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
+          <div className="order-1 md:order-2 flex justify-center">
+            <SproutIllustration size="hero" />
+          </div>
 
-      <ul className="text-left space-y-4 mb-10 max-w-sm mx-auto">
-        <li className="flex gap-3">
-          <span>🎥</span>
-          <span>Watch a short video reward for every badge you claim</span>
-        </li>
-        <li className="flex gap-3">
-          <span>💬</span>
-          <span>Share your own reflection, your version of the story</span>
-        </li>
-        <li className="flex gap-3">
-          <span>🫂</span>
-          <span>Read what this journey means to others in the Circle</span>
-        </li>
-      </ul>
-
-      <Link
-        href="/login"
-        className="inline-block bg-pink-pale hover:bg-pink-dusty transition-colors text-pink-deep font-display text-xl px-10 py-4 rounded-xl2"
-      >
-        Begin
-      </Link>
-      <p className="italic text-sm text-gray-500 mt-4">
-        Free to join. Your first badge is already waiting.
-      </p>
-      <p className="text-sm mt-3">
-        <Link href="/reviews" className="text-pink-deep hover:underline">
-          Read what other readers are saying →
-        </Link>
-      </p>
-
-      {salesUrl && (
-        <p className="text-xs text-gray-400 mt-6">
-          Don&apos;t have the book yet?{" "}
-          <a href={`${salesUrl}?ref=begin-cold`} className="underline hover:text-pink-deep transition-colors">
-            Get it here →
-          </a>
-        </p>
-      )}
-
-      {featuredReviews.length > 0 && (
-        <div className="mt-16 pt-12 border-t border-pink-pale text-left">
-          <p className="text-xs uppercase tracking-widest text-pink-deep mb-6 text-center">
-            What readers are saying
-          </p>
-          <div className="space-y-4">
-            {featuredReviews.map((r) => (
-              <div key={r.id} className="bg-white border border-pink-pale rounded-xl2 p-5">
-                <Stars rating={r.rating} />
-                <p className="text-ink leading-relaxed italic mt-3 mb-2 text-sm">
-                  &ldquo;{r.text}&rdquo;
-                </p>
-                <p className="text-xs text-gray-400">{r.display_name_override ?? "A reader"}</p>
-              </div>
-            ))}
+          <div className="order-2 md:order-1 text-center md:text-left">
+            <h1 className="text-4xl md:text-5xl leading-tight mb-5">
+              Twelve chapters. Twelve badges. One growing circle.
+            </h1>
+            <p className="leading-relaxed mb-6 md:pr-6">
+              Every badge in the book has a home online -- a short video, a place for your own
+              reflection, and a circle of people walking the same twelve chapters as you. Nothing
+              to buy, nothing to prove.
+            </p>
+            <div className="flex justify-center md:justify-start mb-7">
+              <AvatarStack />
+            </div>
+            <Link
+              href="/login"
+              className="inline-block bg-pink-pale hover:bg-pink-dusty transition-colors text-pink-deep font-display text-xl px-10 py-4 rounded-xl2"
+            >
+              Begin
+            </Link>
           </div>
         </div>
-      )}
+      </div>
+
+      <div className="max-w-xl mx-auto text-center mt-12 md:mt-14">
+        <ul className="text-left space-y-4 mb-10 max-w-sm mx-auto">
+          <li className="flex gap-3">
+            <span>🎥</span>
+            <span>Watch a short video reward for every badge you claim</span>
+          </li>
+          <li className="flex gap-3">
+            <span>💬</span>
+            <span>Share your own reflection, your version of the story</span>
+          </li>
+          <li className="flex gap-3">
+            <span>🫂</span>
+            <span>Read what this journey means to others in the Circle</span>
+          </li>
+        </ul>
+
+        <p className="italic text-sm text-gray-500 mb-3">
+          Free to join. Your first badge is already waiting.
+        </p>
+        <p className="text-sm">
+          <Link href="/reviews" className="text-pink-deep hover:underline">
+            Read what other readers are saying →
+          </Link>
+        </p>
+
+        {salesUrl && (
+          <p className="text-xs text-gray-400 mt-6">
+            Don&apos;t have the book yet?{" "}
+            <a href={`${salesUrl}?ref=begin-cold`} className="underline hover:text-pink-deep transition-colors">
+              Get it here →
+            </a>
+          </p>
+        )}
+
+        {featuredReviews.length > 0 && (
+          <div className="mt-16 pt-12 border-t border-pink-pale text-left">
+            <p className="text-xs uppercase tracking-widest text-pink-deep mb-6 text-center">
+              What readers are saying
+            </p>
+            <div className="space-y-4">
+              {featuredReviews.map((r) => (
+                <div key={r.id} className="bg-white border border-pink-pale rounded-xl2 p-5">
+                  <Stars rating={r.rating} />
+                  <p className="text-ink leading-relaxed italic mt-3 mb-2 text-sm">
+                    &ldquo;{r.text}&rdquo;
+                  </p>
+                  <p className="text-xs text-gray-400">{r.display_name_override ?? "A reader"}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </main>
   );
 }
