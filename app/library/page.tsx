@@ -65,7 +65,7 @@ export default async function LibraryPage({
 
   return (
     <AppShell user={user} dataPromise={appShellDataPromise}>
-      <main className="max-w-xl mx-auto px-5 py-8">
+      <main className="max-w-3xl mx-auto px-5 py-8">
         <h1 className="text-3xl mb-0.5">Your Library</h1>
         <p className="text-gray-400 mb-10 italic text-sm">Your journey, your pace.</p>
 

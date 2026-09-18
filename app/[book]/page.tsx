@@ -87,7 +87,7 @@ export default async function JourneyPage({
 
   return (
     <AppShell>
-      <main className="max-w-xl mx-auto px-5 py-8">
+      <main className="max-w-3xl mx-auto px-5 py-8">
         <div className="mb-6">
           <Link
             href="/library"

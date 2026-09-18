@@ -119,7 +119,7 @@ export default async function GrowingPage() {
 
   return (
     <AppShell user={user} dataPromise={appShellDataPromise}>
-      <main className="max-w-xl mx-auto px-5 py-8 text-center">
+      <main className="max-w-3xl mx-auto px-5 py-8 text-center">
         <h1 className="text-3xl mb-1">Growing</h1>
         {sharedReflectionCount > 0 && (
           <p className="text-gray-400 italic text-sm mb-1">
