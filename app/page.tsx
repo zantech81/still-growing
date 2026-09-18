@@ -75,7 +75,7 @@ export default async function HomePage() {
 
   return (
     <main className="px-6 py-16 md:py-20">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/logo-page-header.png" alt="Still Growing" className="h-14 w-auto mx-auto mb-10 md:mb-14" />
 
