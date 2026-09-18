@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AppShell, { fetchAppShellData } from "@/components/AppShell";
 import LockedBookCard from "@/components/LockedBookCard";
+import SproutIllustration from "@/components/SproutIllustration";
 import { DEFAULT_PLACEHOLDER_TEXT } from "@/lib/comingSoonPlaceholders";
 
 export default async function LibraryPage({
@@ -69,11 +70,21 @@ export default async function LibraryPage({
         <p className="text-gray-400 mb-10 italic text-sm">Your journey, your pace.</p>
 
         {collectionList.length === 0 ? (
-          <p className="text-gray-500 text-center py-16">
-            No books are available yet. Check back soon.
-          </p>
+          <div className="text-center py-16">
+            <SproutIllustration size="small" className="mx-auto mb-4" />
+            <p className="text-gray-500">No books are available yet. Check back soon.</p>
+          </div>
         ) : (
           <div className="space-y-12">
+            {unlockedSet.size === 0 && (
+              <div className="flex items-center gap-4 bg-pink-pale rounded-xl2 p-4">
+                <SproutIllustration size="small" className="flex-shrink-0" />
+                <p className="text-sm text-ink leading-snug">
+                  Welcome! Enter your unlock code below to claim your first badge.
+                </p>
+              </div>
+            )}
+
             {collectionList.map((collection) => (
               <section key={collection.id}>
                 {/* Collection header */}
