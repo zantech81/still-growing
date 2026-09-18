@@ -6,7 +6,7 @@ export default function LibraryLoading() {
     <>
       <NavShellSkeleton active="Library" />
       <div className="min-h-screen pt-14 pb-20 md:pb-4">
-        <main className="max-w-xl mx-auto px-5 py-8">
+        <main className="max-w-3xl mx-auto px-5 py-8">
           <SkeletonBlock className="h-8 w-48 mb-2" />
           <SkeletonBlock className="h-4 w-40 mb-10" />
 

@@ -6,7 +6,7 @@ export default function AccountLoading() {
     <>
       <NavShellSkeleton active={null} />
       <div className="min-h-screen pt-14 pb-20 md:pb-4">
-        <main className="max-w-lg mx-auto px-5 py-8">
+        <main className="max-w-3xl mx-auto px-5 py-8">
           <SkeletonBlock className="h-8 w-32 mb-10" />
           <div className="space-y-8">
             <SkeletonBlock className="h-16" />
