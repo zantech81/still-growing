@@ -7,6 +7,7 @@ import Avatar from "@/components/Avatar";
 import ReflectionActions from "@/components/ReflectionActions";
 import ShareButton from "@/components/ShareButton";
 import RootForButton from "@/components/RootForButton";
+import SproutIllustration from "@/components/SproutIllustration";
 import { COUNTRIES } from "@/lib/countries";
 
 const COUNTRY_NAMES = new Map(COUNTRIES.map((c) => [c.code, c.name]));
@@ -513,6 +514,11 @@ export default function CircleFeed({
       {/* Feed */}
       {visible.length === 0 ? (
         <div className="text-center py-16">
+          {/* One-time "quiet feed" moment: only the genuine zero-reflections
+              case (no filter narrowing the view), never the "Mine" or
+              filtered-no-match empty states below -- those are about the
+              viewer's filter choice, not an invitingly-empty Circle. */}
+          {!anyFilterActive && <SproutIllustration size="small" className="mx-auto mb-4" />}
           <p className="text-gray-400 italic mb-3">
             {anyFilterActive
               ? authorScope === "mine" && !chapterFilter && !countryFilter && !dateFilter
