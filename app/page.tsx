@@ -106,7 +106,7 @@ export default async function HomePage() {
         </div>
       </div>
 
-      <div className="max-w-xl mx-auto text-center mt-12 md:mt-14">
+      <div className="max-w-3xl mx-auto text-center mt-12 md:mt-14">
         <ul className="text-left space-y-4 mb-10 max-w-sm mx-auto">
           <li className="flex gap-3">
             <span>🎥</span>
