@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import AppShell from "@/components/AppShell";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import SproutIllustration from "@/components/SproutIllustration";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://stillgrowing.co";
 
@@ -79,9 +80,10 @@ export default async function ReviewsPage() {
         </div>
 
         {reviews.length === 0 ? (
-          <p className="text-center text-gray-400 italic py-16">
-            No reviews yet. Be the first to share yours.
-          </p>
+          <div className="text-center py-16">
+            <SproutIllustration size="small" className="mx-auto mb-4" />
+            <p className="text-gray-400 italic">No reviews yet. Be the first to share yours.</p>
+          </div>
         ) : (
           <div className="space-y-4">
             {reviews.map((r) => (
