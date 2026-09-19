@@ -134,6 +134,16 @@ No borders or clipping patterns beyond these two radii were found in repeated us
 ### Badges
 - **Verified badge / unread-count pill:** `rounded-full`, solid `bg-pink-deep text-white`, small fixed size (`min-w-[18px] h-[18px]`) — the app's smallest recurring shape token, used identically in `CircleUnreadCount.tsx` and `admin/AdminNav.tsx`.
 
+## Direction B Rollout — Summary
+
+**What shipped:** the illustrated-warmth visual direction (Sprout mascot via `SproutIllustration`, real-data social proof via `AvatarStack`) applied site-wide — the homepage hero (flagship instance), Library (empty-catalog message + first-run banner), Journey (the chapter-completion moment, plus the individual chapter/milestone claim pages), Circle (zero-reflections empty state), and `/reviews` (zero-reviews empty state).
+
+**What deliberately didn't get it, and why:** Growing (the procedural tree already carries the "nothing growing yet" visual weight on its own — a second illustrated device would compete, not complement); Account (a settings page, not a Persuade moment); `/login` (a minimal single-purpose auth form with no empty state or room to spare without working against its one job); Admin (verified clean of any rollout side-effects, out of scope by design).
+
+**Width standardization:** `max-w-3xl` (768px) is now the single content-width standard across the entire reader app (full page list under Layout's Content width note). Accepted tradeoff: Circle's reflection quotes (and the public profile's pinned-reflection cards) run past the 65–75ch guideline as a result, chosen for site-wide consistency over per-page optimization. Remaining intentional exceptions: `/login` at `max-w-sm` (auth form); The Grove, `/privacy`, and `/r/[shareId]` at `max-w-2xl` (long-form prose, or an already-documented cold-traffic exception).
+
+**Other durable decisions:** one Sprout pose only, no pose-variant system yet; `AvatarStack` shows real data or renders nothing — never a placeholder or hollow zero; the Persuade-Scale Rule (below) governs where and how large Sprout is allowed to appear going forward, for any future page this rollout didn't reach.
+
 ## Illustration
 
 Direction B's site-wide illustrated-warmth system, extending the existing palette and shape language rather than replacing it. Flagship instance: the homepage (`/`) hero.
