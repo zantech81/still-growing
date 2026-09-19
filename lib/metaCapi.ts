@@ -47,7 +47,7 @@ export async function sendMetaPurchaseEvent(event: MetaPurchaseEvent): Promise<v
   const pixelId = process.env.META_PIXEL_ID;
   const accessToken = process.env.META_CAPI_ACCESS_TOKEN;
   if (!pixelId || !accessToken) {
-    console.warn("[metaCapi] META_PIXEL_ID or META_CAPI_ACCESS_TOKEN not set, skipping Purchase event");
+    console.error("[metaCapi] CAPI skipped: missing META_PIXEL_ID or META_CAPI_ACCESS_TOKEN env var");
     return;
   }
 
@@ -67,13 +67,19 @@ export async function sendMetaPurchaseEvent(event: MetaPurchaseEvent): Promise<v
         user_data: event.email ? { em: [sha256Lower(event.email)] } : {},
         custom_data: {
           currency: event.currency,
+          // amountCents is order.totalPrice's unit (cents, e.g. 1499 =
+          // $14.99); Graph API's custom_data.value is the plain decimal
+          // amount, hence the /100 here.
           value: event.amountCents / 100,
           ...(event.orderId ? { order_id: event.orderId } : {}),
         },
       },
     ],
-    ...(process.env.META_CAPI_TEST_EVENT_CODE
-      ? { test_event_code: process.env.META_CAPI_TEST_EVENT_CODE }
+    // Optional: set only while verifying in Events Manager's Test Events
+    // tab. A test_event_code routes events to test-only, not the reported
+    // ad account totals -- unset in production once verification is done.
+    ...(process.env.META_TEST_EVENT_CODE
+      ? { test_event_code: process.env.META_TEST_EVENT_CODE }
       : {}),
   };
 
@@ -83,10 +89,30 @@ export async function sendMetaPurchaseEvent(event: MetaPurchaseEvent): Promise<v
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    const resText = await res.text().catch(() => "(unreadable response body)");
     if (!res.ok) {
-      const errBody = await res.text().catch(() => "(unreadable)");
-      console.error(`[metaCapi] POST /events failed ${res.status}: ${errBody}`);
+      // Meta's error body is JSON: { error: { message, type, code,
+      // fbtrace_id, ... } }. Parse for the fields that actually explain
+      // the rejection; fall back to the raw text if it isn't JSON (e.g. an
+      // upstream proxy/edge error page instead of a Graph API response).
+      let message: string | undefined;
+      let fbtraceId: string | undefined;
+      try {
+        const parsed = JSON.parse(resText);
+        message = parsed?.error?.message;
+        fbtraceId = parsed?.error?.fbtrace_id;
+      } catch {
+        // Not JSON -- resText alone is logged below.
+      }
+      console.error(
+        `[metaCapi] POST /events failed: status=${res.status}` +
+          (message ? ` message=${JSON.stringify(message)}` : "") +
+          (fbtraceId ? ` fbtrace_id=${fbtraceId}` : "") +
+          ` body=${resText}`
+      );
+      return;
     }
+    console.log(`[metaCapi] Purchase event sent: status=${res.status} body=${resText}`);
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
       console.error("[metaCapi] POST /events timed out after 5s");
