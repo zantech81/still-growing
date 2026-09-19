@@ -53,10 +53,17 @@ export async function sendMetaPurchaseEvent(event: MetaPurchaseEvent): Promise<v
 
   const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${pixelId}/events?access_token=${encodeURIComponent(accessToken)}`;
 
+  // Single source of truth for both the request body below and the log
+  // lines further down, so the logs always describe exactly what was sent,
+  // never a value that's drifted from it.
+  const eventName = "Purchase";
+  const value = event.amountCents / 100;
+  const hasTestEventCode = !!process.env.META_TEST_EVENT_CODE;
+
   const body: Record<string, unknown> = {
     data: [
       {
-        event_name: "Purchase",
+        event_name: eventName,
         event_time: Math.floor(Date.now() / 1000),
         // Shared with the client-side pixel's event_id (same Systeme.io
         // order id) so Meta dedupes the two into one conversion instead of
@@ -70,7 +77,7 @@ export async function sendMetaPurchaseEvent(event: MetaPurchaseEvent): Promise<v
           // amountCents is order.totalPrice's unit (cents, e.g. 1499 =
           // $14.99); Graph API's custom_data.value is the plain decimal
           // amount, hence the /100 here.
-          value: event.amountCents / 100,
+          value,
           ...(event.orderId ? { order_id: event.orderId } : {}),
         },
       },
@@ -78,10 +85,14 @@ export async function sendMetaPurchaseEvent(event: MetaPurchaseEvent): Promise<v
     // Optional: set only while verifying in Events Manager's Test Events
     // tab. A test_event_code routes events to test-only, not the reported
     // ad account totals -- unset in production once verification is done.
-    ...(process.env.META_TEST_EVENT_CODE
-      ? { test_event_code: process.env.META_TEST_EVENT_CODE }
-      : {}),
+    ...(hasTestEventCode ? { test_event_code: process.env.META_TEST_EVENT_CODE } : {}),
   };
+
+  // Logged on both success and failure below -- never the code itself,
+  // just whether one was included, and never the token or raw email.
+  const logContext =
+    `event_name=${eventName} event_id=${event.orderId ?? "(none)"} value=${value} ` +
+    `currency=${event.currency} test_event_code_included=${hasTestEventCode}`;
 
   try {
     const res = await timedFetch(url, {
@@ -108,11 +119,11 @@ export async function sendMetaPurchaseEvent(event: MetaPurchaseEvent): Promise<v
         `[metaCapi] POST /events failed: status=${res.status}` +
           (message ? ` message=${JSON.stringify(message)}` : "") +
           (fbtraceId ? ` fbtrace_id=${fbtraceId}` : "") +
-          ` body=${resText}`
+          ` ${logContext} body=${resText}`
       );
       return;
     }
-    console.log(`[metaCapi] Purchase event sent: status=${res.status} body=${resText}`);
+    console.log(`[metaCapi] Purchase event sent: status=${res.status} ${logContext} body=${resText}`);
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
       console.error("[metaCapi] POST /events timed out after 5s");
