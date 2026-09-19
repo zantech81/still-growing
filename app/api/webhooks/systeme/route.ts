@@ -41,8 +41,8 @@ const ADMIN_ALERT_RECIPIENT = "admin@stillgrowing.co";
 type SystemeWebhookPayload = {
   customer?: { email?: string };
   order?: { id?: number | string; totalPrice?: number };
-  pricePlan?: { currency?: string; name?: string; innerName?: string };
-  orderItem?: { resources?: Array<{ tag?: { name?: string } }> };
+  pricePlan?: { id?: number | string; currency?: string; name?: string; innerName?: string };
+  orderItem?: { id?: number | string; resources?: Array<{ tag?: { name?: string } }> };
   funnelStep?: { funnel?: { name?: string } };
 };
 
@@ -109,6 +109,24 @@ export async function POST(request: NextRequest) {
   // a main-funnel one -- see 0046_purchases_product_tag.sql.
   const productTag: string | null =
     payload.orderItem?.resources?.[0]?.tag?.name ?? payload.funnelStep?.funnel?.name ?? null;
+
+  // Meta's event_id must be unique per Purchase event, not per order: an
+  // order with a bump fires one SALE_NEW webhook per line item, all
+  // sharing the same order.id (confirmed 2026-09-19, order 12702840 --
+  // book + $3.99 bump). orderItem.id is the per-line-item id; pricePlan.id
+  // is the fallback should orderItem.id ever also collide; plain orderId
+  // is the last resort when neither is present (matches the single-item,
+  // no-bump case this app has always had). See lib/metaCapi.ts's
+  // MetaPurchaseEvent.eventId for how this is used.
+  const orderItemId: string | null = payload.orderItem?.id != null ? String(payload.orderItem.id) : null;
+  const pricePlanId: string | null = payload.pricePlan?.id != null ? String(payload.pricePlan.id) : null;
+  const metaEventId: string | null = orderId
+    ? orderItemId
+      ? `${orderId}-${orderItemId}`
+      : pricePlanId
+        ? `${orderId}-${pricePlanId}`
+        : orderId
+    : null;
 
   if (!orderId) {
     console.warn(`[webhooks/systeme] No order id found in "${rawType}" payload, inserting without dedup`);
@@ -236,7 +254,7 @@ export async function POST(request: NextRequest) {
   // here are the same verified order.totalPrice/pricePlan.currency values
   // just written to `purchases` above, not a separate parse.
   if (amount != null && currency) {
-    await sendMetaPurchaseEvent({ email, orderId, amountCents: amount, currency });
+    await sendMetaPurchaseEvent({ email, eventId: metaEventId, orderId, amountCents: amount, currency });
   }
 
   return NextResponse.json({ ok: true });

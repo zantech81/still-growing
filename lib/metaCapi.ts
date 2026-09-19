@@ -1,14 +1,13 @@
 import crypto from "crypto";
 
 // Server-side Purchase event via Meta's Conversions API (CAPI), sent from
-// app/api/webhooks/systeme/route.ts on a confirmed sale. Complements (does
-// not replace) the client-side Meta Pixel Purchase event fired on
-// Systeme.io's own order-confirmation page -- CAPI is the reliable half:
-// it isn't affected by ad blockers, Safari's ITP, or a buyer closing the
-// tab before the confirmation page's pixel fires, and it uses the same
+// app/api/webhooks/systeme/route.ts on a confirmed sale. There is no
+// client-side Purchase pixel anywhere in this funnel -- Systeme.io's
+// order-confirmation page doesn't fire one -- so this server event is the
+// only Purchase signal Meta gets, not a complement to one. Uses the same
 // order.totalPrice/pricePlan.currency values the webhook already verified
 // are correct (2026-08-21/22 fix), rather than whatever Systeme.io's page
-// editor can expose to client-side JS on that page.
+// editor could expose to client-side JS on that page.
 //
 // GRAPH_API_VERSION pinned, not "latest": Meta deprecates versions on a
 // schedule: pin so this doesn't silently break on Meta's timeline instead
@@ -18,6 +17,21 @@ const TIMEOUT_MS = 5_000;
 
 export type MetaPurchaseEvent = {
   email: string | null;
+  // Meta's event_id -- must be unique per Purchase event sent. There's no
+  // client-side pixel to dedupe against (see the file-level comment
+  // above); this exists purely so Meta's OWN dedup logic doesn't collapse
+  // two genuinely different sales into one. NOT always the same as
+  // orderId below: a single Systeme order with an order bump fires one
+  // SALE_NEW webhook per line item, all sharing the same order.id, so
+  // using order.id alone here makes Meta treat every item after the first
+  // as a duplicate of the one before it and drop it silently -- confirmed
+  // 2026-09-19 via order 12702840 (book + $3.99 bump): the bump's Purchase
+  // never appeared in Test Events. The caller
+  // (app/api/webhooks/systeme/route.ts) builds this from order.id plus a
+  // per-line-item id.
+  eventId: string | null;
+  // Systeme's order id -- always order.id, regardless of eventId above.
+  // Still written to custom_data.order_id unchanged.
   orderId: string | null;
   // Cents, same unit as purchases.amount (order.totalPrice from the
   // webhook payload) -- converted to a decimal below, since CAPI's
@@ -65,11 +79,11 @@ export async function sendMetaPurchaseEvent(event: MetaPurchaseEvent): Promise<v
       {
         event_name: eventName,
         event_time: Math.floor(Date.now() / 1000),
-        // Shared with the client-side pixel's event_id (same Systeme.io
-        // order id) so Meta dedupes the two into one conversion instead of
-        // double-counting -- see the /begin handoff notes for the
-        // client-side snippet that needs to match this.
-        ...(event.orderId ? { event_id: event.orderId } : {}),
+        // Unique per line item, not per order, so Meta's own dedup doesn't
+        // collapse a multi-item sale (e.g. book + bump) into one Purchase
+        // -- see MetaPurchaseEvent.eventId above. No client-side pixel
+        // exists to match ids against.
+        ...(event.eventId ? { event_id: event.eventId } : {}),
         action_source: "website",
         user_data: event.email ? { em: [sha256Lower(event.email)] } : {},
         custom_data: {
@@ -91,7 +105,7 @@ export async function sendMetaPurchaseEvent(event: MetaPurchaseEvent): Promise<v
   // Logged on both success and failure below -- never the code itself,
   // just whether one was included, and never the token or raw email.
   const logContext =
-    `event_name=${eventName} event_id=${event.orderId ?? "(none)"} value=${value} ` +
+    `event_name=${eventName} event_id=${event.eventId ?? "(none)"} value=${value} ` +
     `currency=${event.currency} test_event_code_included=${hasTestEventCode}`;
 
   try {
