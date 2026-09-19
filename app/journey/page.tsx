@@ -37,7 +37,7 @@ export default async function JourneySwitcherPage() {
 
   return (
     <AppShell user={user} dataPromise={appShellDataPromise}>
-      <main className="max-w-xl mx-auto px-5 py-8">
+      <main className="max-w-3xl mx-auto px-5 py-8">
         <h1 className="text-3xl mb-0.5">Choose your journey</h1>
         <p className="text-gray-400 mb-8 italic text-sm">Pick which book to continue.</p>
 

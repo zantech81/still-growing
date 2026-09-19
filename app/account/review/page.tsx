@@ -39,7 +39,7 @@ export default async function LeaveReviewPage({
 
   return (
     <AppShell>
-      <main className="max-w-lg mx-auto px-5 py-8">
+      <main className="max-w-3xl mx-auto px-5 py-8">
         <div className="mb-8">
           <Link href="/account" className="text-sm text-gray-400 hover:text-ink transition-colors">
             ← Account

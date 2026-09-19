@@ -348,7 +348,7 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
 
   if (isLocked) {
     return (
-      <main className="max-w-lg mx-auto px-6 py-8">
+      <main className="max-w-3xl mx-auto px-6 py-8">
         <div className="mb-4">{backLink}</div>
         {chapterNav}
         <div className="py-16 text-center">
@@ -360,7 +360,7 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
   }
 
   return (
-    <main className="max-w-lg mx-auto px-6 py-8">
+    <main className="max-w-3xl mx-auto px-6 py-8">
       <div className="mb-4">{backLink}</div>
       {chapterNav}
 
@@ -507,8 +507,8 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
               // aspect-ratio convention already used for portrait media
               // elsewhere, e.g. LockedBookCard.tsx's book covers) so it
               // reads as a natural portrait video centered in this
-              // card's max-w-lg column on desktop, rather than stretching
-              // to a huge, oddly cropped rectangle -- while still being
+              // card's column on desktop, rather than stretching to a
+              // huge, oddly cropped rectangle -- while still being
               // comfortably full-width on mobile, where 360px rarely
               // binds against the viewport at all.
               <MuxPlayer
