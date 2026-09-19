@@ -110,17 +110,20 @@ export async function POST(request: NextRequest) {
   const productTag: string | null =
     payload.orderItem?.resources?.[0]?.tag?.name ?? payload.funnelStep?.funnel?.name ?? null;
 
-  // Meta's event_id must be unique per Purchase event, not per order: an
-  // order with a bump fires one SALE_NEW webhook per line item, all
-  // sharing the same order.id (confirmed 2026-09-19, order 12702840 --
-  // book + $3.99 bump). orderItem.id is the per-line-item id; pricePlan.id
-  // is the fallback should orderItem.id ever also collide; plain orderId
-  // is the last resort when neither is present (matches the single-item,
-  // no-bump case this app has always had). See lib/metaCapi.ts's
-  // MetaPurchaseEvent.eventId for how this is used.
+  // Per-line-item key, not per order: an order with a bump fires one
+  // SALE_NEW webhook per line item, all sharing the same order.id
+  // (confirmed 2026-09-19, order 12702840 -- book + $3.99 bump). Used both
+  // as Meta CAPI's event_id (lib/metaCapi.ts's MetaPurchaseEvent.eventId)
+  // and as purchases.sale_key, the upsert conflict target below
+  // (0067_purchases_sale_key.sql) -- previously systeme_order_id alone,
+  // which let the bump's webhook silently overwrite the book's row instead
+  // of recording a second sale. orderItem.id is the per-line-item id;
+  // pricePlan.id is the fallback should orderItem.id ever also collide;
+  // plain orderId is the last resort when neither is present (matches the
+  // single-item, no-bump case this app has always had).
   const orderItemId: string | null = payload.orderItem?.id != null ? String(payload.orderItem.id) : null;
   const pricePlanId: string | null = payload.pricePlan?.id != null ? String(payload.pricePlan.id) : null;
-  const metaEventId: string | null = orderId
+  const saleKey: string | null = orderId
     ? orderItemId
       ? `${orderId}-${orderItemId}`
       : pricePlanId
@@ -144,11 +147,23 @@ export async function POST(request: NextRequest) {
     // change on the existing row.
     let matchedExisting = false;
     if (orderId) {
-      const { data: updated, error: updateError } = await supabase
+      // Match by order id alone would now refund every line item under
+      // this order (0067_purchases_sale_key.sql lets more than one row
+      // share an order id), wrongly marking e.g. the book refunded when
+      // only the $3.99 bump was. Narrow to product_tag when the refund
+      // payload carries one -- same extraction as productTag above. If it
+      // doesn't (this payload shape has never been confirmed against a
+      // real refund event, unlike "New sale"), this falls back to
+      // order-id-only and refunds every row for the order, same as
+      // before this migration.
+      let query = supabase
         .from("purchases")
         .update({ status: "refunded", refunded_at: new Date().toISOString(), event_type: eventType || "unknown" })
-        .eq("systeme_order_id", orderId)
-        .select("id");
+        .eq("systeme_order_id", orderId);
+      if (productTag) {
+        query = query.eq("product_tag", productTag);
+      }
+      const { data: updated, error: updateError } = await query.select("id");
 
       if (updateError) {
         console.error("[webhooks/systeme] Refund update failed:", updateError);
@@ -167,6 +182,7 @@ export async function POST(request: NextRequest) {
       );
       const { error: insertError } = await supabase.from("purchases").insert({
         systeme_order_id: orderId,
+        sale_key: saleKey,
         email,
         product_name: productName,
         product_tag: productTag,
@@ -218,10 +234,11 @@ export async function POST(request: NextRequest) {
   }
 
   // isSale path
-  const { error } = orderId
+  const { error } = saleKey
     ? await supabase.from("purchases").upsert(
         {
           systeme_order_id: orderId,
+          sale_key: saleKey,
           email,
           product_name: productName,
           product_tag: productTag,
@@ -231,10 +248,11 @@ export async function POST(request: NextRequest) {
           status: "completed",
           raw_payload: payload,
         },
-        { onConflict: "systeme_order_id" }
+        { onConflict: "sale_key" }
       )
     : await supabase.from("purchases").insert({
         systeme_order_id: orderId,
+        sale_key: saleKey,
         email,
         product_name: productName,
         product_tag: productTag,
@@ -254,7 +272,7 @@ export async function POST(request: NextRequest) {
   // here are the same verified order.totalPrice/pricePlan.currency values
   // just written to `purchases` above, not a separate parse.
   if (amount != null && currency) {
-    await sendMetaPurchaseEvent({ email, eventId: metaEventId, orderId, amountCents: amount, currency });
+    await sendMetaPurchaseEvent({ email, eventId: saleKey, orderId, amountCents: amount, currency });
   }
 
   return NextResponse.json({ ok: true });
