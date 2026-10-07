@@ -123,7 +123,7 @@ export const EMAIL_TEMPLATE_SAMPLE_VARS: Record<EmailTemplateType, Record<string
     email: "reader@example.com",
     productName: "Life Lessons from a Baby Digital Download",
     orderId: "12345678",
-    amountFormatted: "$14.99",
+    amountFormatted: "$7",
     revocationStatus: "Access to Life Lessons from a Baby was automatically revoked for this reader.",
   },
 };

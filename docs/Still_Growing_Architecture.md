@@ -183,7 +183,7 @@ Key re-engagement moments:
 
 ## 9. Monetization Model
 
-- **Entry:** the ebook itself, sold via a Systeme.io sales page (low ticket, ~$9–$17).
+- **Entry:** the ebook itself, sold via a Systeme.io sales page (low ticket, ~$7–$10).
 - **Free platform tier:** badge tracking, scorecard, reflections, Circle access. Enough to feel alive and valuable.
 - **Paid tier (phase 2):** unlocks reward videos, deeper community features, and eventually additional library content. Subscription (monthly/annual), introduced once the community has value.
 - **The platform as launch engine:** each new book launches to an existing, warm, reachable audience — reducing dependence on paid ads.
