@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { isAdmin } from "@/lib/supabase/isAdmin";
 import ChapterForm from "@/components/admin/ChapterForm";
 
 export default async function EditChapterPage({
@@ -8,9 +10,12 @@ export default async function EditChapterPage({
   params: { id: string; chapterId: string };
 }) {
   const supabase = createClient();
+  if (!(await isAdmin(supabase))) notFound();
 
+  // Service role for the chapter row: unlock_code isn't readable by
+  // anon/authenticated (0068_lock_down_codes_and_progress.sql).
   const [{ data: chapter }, { data: badge }, { data: book }] = await Promise.all([
-    supabase
+    createAdminClient()
       .from("chapters")
       .select("id, number, title, milestone_label, reflect_question, challenge_text, mux_playback_id, thumbnail_time, unlock_code")
       .eq("id", params.chapterId)

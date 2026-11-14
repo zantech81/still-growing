@@ -1,5 +1,6 @@
 import { Filter } from "bad-words";
 import type { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // ── Leetspeak normalization ──────────────────────────────────────────────────
 // Maps common obfuscation substitutions back to their base letters so a single
@@ -169,11 +170,18 @@ export function hasChapterPassword(text: string, passwords: string[]): boolean {
 // reflection happens to be for -- a reader could paste a different
 // chapter's password into any reflection, so every currently-set code
 // across every chapter is checked regardless of context.
-export async function getActiveChapterPasswords(
-  supabase: ReturnType<typeof createClient>
-): Promise<string[]> {
-  const { data } = await supabase.from("chapters").select("unlock_code").not("unlock_code", "is", null);
-  return (data ?? []).map((row) => row.unlock_code).filter((code): code is string => !!code);
+//
+// Read with the service-role client: chapters.unlock_code is not readable
+// by anon or authenticated (0068_lock_down_codes_and_progress.sql). The
+// published-book filter keeps the same set the old RLS-scoped read
+// returned for a reader.
+export async function getActiveChapterPasswords(): Promise<string[]> {
+  const { data } = await createAdminClient()
+    .from("chapters")
+    .select("unlock_code, books!inner(status)")
+    .eq("books.status", "published")
+    .not("unlock_code", "is", null);
+  return (data ?? []).map((row) => row.unlock_code as string | null).filter((code): code is string => !!code);
 }
 
 // ── Self-harm ─────────────────────────────────────────────────────────────────

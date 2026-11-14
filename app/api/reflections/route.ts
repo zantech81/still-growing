@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveChapterPasswords, logSelfHarmFlag, moderateReflection } from "@/lib/moderation";
 import { CHAPTER_PASSWORD_MESSAGE, CONTACT_INFO_MESSAGE, HARMFUL_MESSAGE, productFeedbackMessage, selfHarmMessage } from "@/lib/moderationMessages";
 import { graphemeLength } from "@/lib/text";
@@ -65,14 +66,43 @@ export async function POST(request: Request) {
   // so only that call needs to prove it has the chapter's code. Fetched and
   // compared server-side - never exposed to the client (same principle as
   // the book redemption code in /api/redeem).
+  //
+  // The claim also awards the badge and advances progress (below, after the
+  // reflection saves), so it re-checks the same gates the chapter page
+  // applies before showing the claim form: the book is unlocked for this
+  // user and the chapter is not past their current_chapter. Badge and
+  // progress rows are written only here, with the service role; clients
+  // cannot write them (0068_lock_down_codes_and_progress.sql).
+  const admin = createAdminClient();
+  let claimBadgeId: string | null = null;
+  let claimChapterNumber = chapter_number;
   if (is_claim) {
-    const { data: chapterRow } = await supabase
+    const { data: chapterRow } = await admin
       .from("chapters")
-      .select("unlock_code")
+      .select("book_id, number, unlock_code, badges(id)")
       .eq("id", chapter_id)
       .single();
 
-    if (chapterRow?.unlock_code) {
+    const [{ data: unlockRow }, { data: progressRow }] = await Promise.all([
+      admin.from("book_unlocks").select("id").eq("user_id", user.id).eq("book_id", book_id).maybeSingle(),
+      admin.from("user_books").select("current_chapter").eq("user_id", user.id).eq("book_id", book_id).maybeSingle(),
+    ]);
+
+    if (
+      !chapterRow ||
+      chapterRow.book_id !== book_id ||
+      chapterRow.number !== chapter_number ||
+      !unlockRow ||
+      chapterRow.number > (progressRow?.current_chapter ?? 1)
+    ) {
+      return NextResponse.json({ error: "Something went wrong. Try again." }, { status: 403 });
+    }
+
+    const badgeArr = chapterRow.badges as unknown as { id: string }[] | { id: string } | null;
+    claimBadgeId = (Array.isArray(badgeArr) ? badgeArr[0]?.id : badgeArr?.id) ?? null;
+    claimChapterNumber = chapterRow.number;
+
+    if (chapterRow.unlock_code) {
       const submitted = typeof unlock_code === "string" ? unlock_code.trim() : "";
       if (!submitted || chapterRow.unlock_code.toUpperCase() !== submitted.toUpperCase()) {
         return NextResponse.json(
@@ -97,7 +127,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const chapterPasswords = await getActiveChapterPasswords(supabase);
+  const chapterPasswords = await getActiveChapterPasswords();
   const verdict = moderateReflection(trimmed, chapterPasswords);
   if (verdict.type === "blocked_contact") {
     return NextResponse.json({ error: CONTACT_INFO_MESSAGE, code: "contact_info" }, { status: 400 });
@@ -145,6 +175,29 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: "Something went wrong. Try again." }, { status: 500 });
+  }
+
+  // Same order and messages as the old client-side claim in
+  // components/ClaimChapter.tsx: badge first (a failure stops the claim),
+  // then the progress upsert, whose result was never checked.
+  if (is_claim) {
+    if (claimBadgeId) {
+      const { error: badgeError } = await admin.from("user_badges").insert({
+        user_id: user.id,
+        badge_id: claimBadgeId,
+        book_id,
+      });
+      if (badgeError) {
+        return NextResponse.json({ error: "Something went wrong claiming your badge. Try again." }, { status: 500 });
+      }
+    }
+
+    await admin
+      .from("user_books")
+      .upsert(
+        { user_id: user.id, book_id, current_chapter: claimChapterNumber + 1, badges_earned: claimChapterNumber },
+        { onConflict: "user_id,book_id" }
+      );
   }
 
   return NextResponse.json({ ok: true, reflection: inserted, flagged: isSpam });

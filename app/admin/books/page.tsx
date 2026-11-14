@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { isAdmin } from "@/lib/supabase/isAdmin";
 
 const STATUS_BADGE: Record<string, string> = {
   draft: "bg-gray-100 text-gray-500",
@@ -15,8 +18,11 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default async function AdminBooksPage() {
   const supabase = createClient();
+  if (!(await isAdmin(supabase))) notFound();
 
-  const { data: books } = await supabase
+  // Service role: redemption_code isn't readable by anon/authenticated
+  // (0068_lock_down_codes_and_progress.sql). Admins already saw every row.
+  const { data: books } = await createAdminClient()
     .from("books")
     .select("id, title, slug, status, redemption_code, collection_id, collections(name)")
     .order("created_at", { ascending: false });

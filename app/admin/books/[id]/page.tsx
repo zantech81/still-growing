@@ -1,15 +1,20 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isAdmin } from "@/lib/supabase/isAdmin";
 import { getCompletedPurchaseEmailSet } from "@/lib/purchases";
 import BookForm from "@/components/admin/BookForm";
 import UnlockVerificationSummary from "@/components/admin/UnlockVerificationSummary";
 
 export default async function EditBookPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
+  if (!(await isAdmin(supabase))) notFound();
 
+  // Service role for the book row: redemption_code and
+  // redemption_code_amazon aren't readable by anon/authenticated
+  // (0068_lock_down_codes_and_progress.sql).
   const [{ data: book }, { data: collections }] = await Promise.all([
-    supabase
+    createAdminClient()
       .from("books")
       .select("id, collection_id, title, subtitle, description, slug, cover_image_url, banner_image_url, share_banner_image_url, sales_page_url, redemption_code, redemption_code_amazon, status, reveal_details, placeholder_text, gamification_config")
       .eq("id", params.id)

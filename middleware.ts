@@ -9,8 +9,7 @@ import { RESERVED_SLUGS } from "@/lib/reservedSlugs";
 //   and flip the toggle back off.
 // - /login, /auth/callback, /auth/welcome, /api/auth: the full sign-in
 //   path -- both the Google and magic-link flows redirect through
-//   /auth/callback then /auth/welcome (see app/login/page.tsx), and
-//   /api/auth/check-email-provider is called from the login form itself.
+//   /auth/callback then /auth/welcome (see app/login/page.tsx).
 //   Without all of these, an admin who isn't already signed in has no way
 //   to reach /admin at all once maintenance is on -- a self-lockout with
 //   no way to turn it back off.

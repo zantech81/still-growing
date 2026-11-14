@@ -82,7 +82,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   // Edits go through the same moderation as new submissions. A reflection
   // isn't exempt from the rules just because the original text passed them.
-  const chapterPasswords = await getActiveChapterPasswords(supabase);
+  const chapterPasswords = await getActiveChapterPasswords();
   const verdict = moderateReflection(trimmed, chapterPasswords);
   if (verdict.type === "blocked_contact") {
     return NextResponse.json({ error: CONTACT_INFO_MESSAGE, code: "contact_info" }, { status: 400 });

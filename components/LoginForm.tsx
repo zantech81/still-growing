@@ -26,22 +26,11 @@ export default function LoginForm() {
     setError("");
     setSending(true);
 
-    // signInWithOtp() alone can't tell "brand new email" apart from
-    // "already a Google-only account" -- GoTrue returns the same silent
-    // 200/no-error either way. Check first so we can give the Google case
-    // an honest message instead of a false "check your email."
-    const checkRes = await fetch("/api/auth/check-email-provider", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const checkData = await checkRes.json().catch(() => ({}));
-    if (checkData.googleOnly) {
-      setError("This email already has an account with Google. Use Continue with Google above to sign in.");
-      setSending(false);
-      return;
-    }
-
+    // GoTrue returns the same silent 200 whether the email is new, an
+    // email-link account, or a Google-only account (which gets no email).
+    // The confirmation below is deliberately the same for all three, with a
+    // Google hint, so the page never reveals whether an account exists or
+    // how it signs in.
     const { error: otpError } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
@@ -71,7 +60,10 @@ export default function LoginForm() {
       <p className="text-sm text-gray-400 mb-4">or</p>
 
       {sent ? (
-        <p className="text-sm">Check your email for a link to finish signing in.</p>
+        <p className="text-sm">
+          Check your email for a link to finish signing in. If you signed up with Google, no email will arrive. Use
+          Continue with Google above instead.
+        </p>
       ) : (
         <form onSubmit={signInWithEmail} className="space-y-3">
           <p className="text-sm text-ink bg-pink-pale border border-pink-dusty rounded-xl2 px-4 py-3 text-left">

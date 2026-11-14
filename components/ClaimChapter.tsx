@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import MuxPlayer from "@mux/mux-player-react";
 import ReflectionActions from "./ReflectionActions";
 import ShareButton from "./ShareButton";
@@ -212,32 +211,8 @@ export default function ClaimChapter({ book, chapter, alreadyClaimed, isLocked, 
       return;
     }
 
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-
-    if (badge) {
-      const { error: badgeError } = await supabase.from("user_badges").insert({
-        user_id: user.id,
-        badge_id: badge.id,
-        book_id: book.id,
-      });
-
-      if (badgeError) {
-        setError("Something went wrong claiming your badge. Try again.");
-        setSubmitting(false);
-        return;
-      }
-    }
-
-    await supabase
-      .from("user_books")
-      .upsert(
-        { user_id: user.id, book_id: book.id, current_chapter: chapter.number + 1, badges_earned: chapter.number },
-        { onConflict: "user_id,book_id" }
-      );
+    // The badge and progress rows are written by /api/reflections itself
+    // (is_claim), only after it has checked the chapter password.
 
     // Clear the saved draft after a successful submit
     localStorage.removeItem(draftKey);

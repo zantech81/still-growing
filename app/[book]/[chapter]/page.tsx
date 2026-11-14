@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import AppShell from "@/components/AppShell";
 import ClaimChapter from "@/components/ClaimChapter";
 
@@ -38,7 +39,7 @@ export default async function ChapterPage({
 
   const { data: chapter } = await supabase
     .from("chapters")
-    .select("id, number, title, milestone_label, reflect_question, mux_playback_id, thumbnail_time, unlock_code, badges(id, name, icon, description, badge_image_url)")
+    .select("id, number, title, milestone_label, reflect_question, mux_playback_id, thumbnail_time, badges(id, name, icon, description, badge_image_url)")
     .eq("book_id", book.id)
     .eq("number", chapterNumber)
     .single();
@@ -51,9 +52,16 @@ export default async function ChapterPage({
   const badge = Array.isArray(badgeArr) ? (badgeArr[0] ?? null) : (badgeArr as Badge | null);
 
   // Never send the actual code to the client (same principle as the book
-  // redemption code in /api/redeem) - only whether one is required.
-  const { unlock_code, badges: _badges, ...chapterFields } = chapter;
-  const hasUnlockCode = !!unlock_code;
+  // redemption code in /api/redeem) - only whether one is required. Read
+  // with the service role: unlock_code isn't readable by anon/authenticated
+  // (0068_lock_down_codes_and_progress.sql).
+  const { badges: _badges, ...chapterFields } = chapter;
+  const { data: codeRow } = await createAdminClient()
+    .from("chapters")
+    .select("unlock_code")
+    .eq("id", chapter.id)
+    .single();
+  const hasUnlockCode = !!codeRow?.unlock_code;
 
   const { data: userBook } = await supabase
     .from("user_books")

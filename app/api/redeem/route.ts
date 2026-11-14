@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: NextRequest) {
   const supabase = createClient();
@@ -22,8 +23,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Fetch the book and both its access codes server-side (never expose codes to client)
-  const { data: book } = await supabase
+  // Fetch the book and both its access codes server-side (never expose codes to client).
+  // Service role: the code columns aren't readable by anon/authenticated, and
+  // book_unlocks has no client insert path (0068_lock_down_codes_and_progress.sql).
+  const admin = createAdminClient();
+  const { data: book } = await admin
     .from("books")
     .select("id, redemption_code, redemption_code_amazon")
     .eq("id", bookId)
@@ -71,7 +75,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
-  const { error: insertError } = await supabase
+  const { error: insertError } = await admin
     .from("book_unlocks")
     .insert({ user_id: user.id, book_id: bookId, unlock_source: unlockSource });
 

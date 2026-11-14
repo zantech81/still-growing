@@ -67,7 +67,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
     // Becoming visible for the first time: run the exact same moderation
     // pipeline a brand-new submission goes through.
-    const chapterPasswords = await getActiveChapterPasswords(supabase);
+    const chapterPasswords = await getActiveChapterPasswords();
     const verdict = moderateReflection(existing.text, chapterPasswords);
     if (verdict.type === "blocked_contact") {
       return NextResponse.json({ error: CONTACT_INFO_MESSAGE, code: "contact_info" }, { status: 400 });
